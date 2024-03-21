@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 
 // AuthRouter.use(bodyParser.json());
 
-const secretKey = "your_secret_key"; // Replace 'your_secret_key' with your actual secret key
+const secretKey = "safarnama"; // Replace 'your_secret_key' with your actual secret key
 
 // Function to generate JWT token
 const generateAuthToken = (userId) => {
@@ -290,34 +290,45 @@ AuthRouter.post("/register", (req, res) => {
 
 AuthRouter.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  pool.query(
-    "SELECT * from users Where email = ? AND password = ?",
-    [email, password],
-    (error, results) => {
-      if (error) {
-        console.error("Error executing query:", error);
-        res.status(500).send("Error fetching data");
-        return;
-      }
-
-      if (!results || results.length === 0) {
-        console.log("User does not exist");
-        return res.status(401).json({ error: "User does not exist" });
-      }
-
-      const user = results[0];
-      const token = jwt.sign(
-        { userId: user.user_id, email: user.email },
-        "your_secret_key",
-        {
-          expiresIn: "1h", // Token expiration time (e.g., 1 hour)
+  try {
+    pool.query(
+      "SELECT * from users Where email = ?",
+      [email],
+      async (error, results) => {
+        if (error) {
+          console.error("Error executing query:", error);
+          return res.status(500).send("Error fetching data");
         }
-      );
 
-      // Return user and token in the response
-      res.status(200).json({ user, token });
-    }
-  );
+        if (!results || results.length === 0) {
+          console.log("User does not exist for email:", email);
+          return res.status(401).json({ error: "User does not exist" });
+        }
+
+        const user = results[0];
+        const isPasswordMatch = await bcrypt.compare(password, user.password);
+        if (!isPasswordMatch) {
+          console.log("Incorrect password for user:", email);
+          return res.status(401).json({ error: "Incorrect password" });
+        }
+
+        const token = jwt.sign(
+          { userId: user.user_id, email: user.email },
+          "safarnama",
+          {
+            expiresIn: "1h", // Token expiration time (e.g., 1 hour)
+          }
+        );
+
+        // Return user and token in the response
+        res.status(200).json({ user, token });
+      }
+    );
+  } catch (error) {
+    console.error("Error authenticating user:", error);
+    res.status(500).json({ error: "Error authenticating user" });
+  }
 });
+
 
 module.exports = AuthRouter;
