@@ -5,11 +5,9 @@ const bcrypt = require("bcryptjs");
 const pool = require("./Db/db");
 const jwt = require("jsonwebtoken");
 
-// AuthRouter.use(bodyParser.json());
 
 const secretKey = "safarnama"; // Replace 'your_secret_key' with your actual secret key
 
-// Function to generate JWT token
 const generateAuthToken = (userId) => {
   // Payload for the token (you can add more data as needed)
   const payload = {
