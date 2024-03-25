@@ -17,6 +17,7 @@ router.get("/places", (req, res) => {
     // Convert image data to base64
     results.forEach(place => {
       place.image = Buffer.from(place.image).toString('base64');
+      place.gallery = place.gallery.split(',').map(image => image.trim());
     });
 
     res.json(results);
@@ -33,6 +34,62 @@ router.get("/packages", (req, res) => {
     res.json(results);
   });
 });
+
+router.get("/railway-packages", (req, res) => {
+  pool.query("SELECT * from railway_packages", (error, results, feilds) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+    res.json(results);
+  });
+});
+
+
+router.get("/airline-packages", (req, res) => {
+  pool.query("SELECT * from airline_packages", (error, results, feilds) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+    res.json(results);
+  });
+});
+
+router.get("/bus-packages", (req, res) => {
+  pool.query("SELECT * from bus_packages", (error, results, feilds) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+    res.json(results);
+  });
+});
+
+router.get("/hotel-details", (req, res) => {
+  pool.query("SELECT * FROM hotel_details", (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+
+    // Convert image data to base64
+    results.forEach(hotel => {
+      hotel.images = Buffer.from(hotel.images).toString('base64');
+      hotel.gallery = hotel.gallery.split(',').map(image => image.trim());
+
+    });
+
+
+    res.json(results);
+  });
+});
+
+
 
 router.get("/package-details", (req, res) => {
   const userId = req.body;
