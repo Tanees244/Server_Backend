@@ -13,8 +13,6 @@ router.get("/places", (req, res) => {
       res.status(500).send("Error fetching data");
       return;
     }
-
-    // Convert image data to base64
     results.forEach(place => {
       place.image = Buffer.from(place.image).toString('base64');
       place.gallery = place.gallery.split(',').map(image => image.trim());
@@ -152,6 +150,11 @@ router.get('/tourist-details', async (req, res) => {
       }
 
       const user = results[0];
+
+      results.forEach(user => {
+        user.picture = Buffer.from(user.picture).toString('base64');
+      });
+
       res.status(200).json(user);
     });
   } catch (error) {
@@ -159,5 +162,8 @@ router.get('/tourist-details', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+router.get('/tourist-details', async (req, res) => {});
+
 
 module.exports = router;
