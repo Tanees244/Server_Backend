@@ -12,6 +12,8 @@ const Routes = require('./Routes');
 app.use('/api/routes', Routes);
 const AdminRoutes = require('./AdminRoutes');
 app.use('/api/adminRoutes', AdminRoutes);
+const GuideRoutes = require('./GuideRoutes');
+app.use('/api/guideRoutes', GuideRoutes);
 
 app.listen(8000, () => {
     console.log(`Server is running on port 8000`);
