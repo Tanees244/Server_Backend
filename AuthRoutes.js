@@ -186,8 +186,9 @@ AuthRouter.post("/register", (req, res) => {
                                         error: "Error inserting airline data",
                                       });
                                     }
-                                    res.status(201).json({
+                                    res.status(200).json({
                                       message: "User registered successfully",
+                                      transportId
                                     });
                                   }
                                 );
@@ -207,8 +208,9 @@ AuthRouter.post("/register", (req, res) => {
                                         error: "Error inserting railway data",
                                       });
                                     }
-                                    res.status(201).json({
+                                    res.status(200).json({
                                       message: "User registered successfully",
+                                      transportId
                                     });
                                   }
                                 );
@@ -228,8 +230,9 @@ AuthRouter.post("/register", (req, res) => {
                                         error: "Error inserting bus data",
                                       });
                                     }
-                                    res.status(201).json({
+                                    res.status(200).json({
                                       message: "User registered successfully",
+                                      transportId
                                     });
                                   }
                                 );
@@ -250,7 +253,6 @@ AuthRouter.post("/register", (req, res) => {
                   }
                 );
                 break;
-                // Handle other user types as needed
                 res
                   .status(201)
                   .json({ message: "User registered successfully" });
@@ -318,7 +320,6 @@ AuthRouter.post('/login', async (req, res) => {
 AuthRouter.post("/guide_personal_details", async (req, res) => {
   const { fullName, age, email, address, phoneNumber, cnicNumber, userId } =
     req.body;
-
   try {
     pool.query(
       "SELECT guide_id FROM guides WHERE user_id = ?",
@@ -468,6 +469,157 @@ AuthRouter.post('/guide_questionnaire', async (req, res) => {
   }
 });
 
+AuthRouter.post("/airline_details", async (req, res) => {
+  const { fullName, email, phoneNumber, transportId } =
+    req.body;
+    console.log(transportId);
+  try {
+    pool.query(
+      "SELECT airline_id FROM airline_transport WHERE transport_id  = ?",
+      [transportId],
+      (airlineIdError, airlineIdResults) => {
+        if (airlineIdError) {
+          console.error("Error fetching guideId:", airlineIdError);
+          return res.status(500).json({ error: "Error fetching guideId" });
+        }
 
+        if (airlineIdResults.length === 0) {
+          return res.status(404).json({ error: "airline not found not found" });
+        }
+
+        const airlineId = airlineIdResults[0].airline_id;
+
+        const insertQuery = `
+        INSERT INTO airline_details (airline_id, name, email, contact_number)
+        VALUES (?, ?, ?, ?)
+      `;
+        const insertValues = [
+          airlineId,
+          fullName,
+          email,
+          phoneNumber,
+        ];
+
+        pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+          if (insertError) {
+            console.error(
+              "Error inserting airline details:",
+              insertError
+            );
+            return res.status(500).json({ error: "Error inserting data" });
+          }
+        });
+        res
+          .status(200)
+          .json({ message: "airline details added successfully", airlineId });
+      }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+AuthRouter.post("/bus_details", async (req, res) => {
+  const { fullName, email, phoneNumber, transportId } =
+    req.body;
+    console.log(transportId);
+  try {
+    pool.query(
+      "SELECT bus_id FROM bus_transport WHERE transport_id  = ?",
+      [transportId],
+      (busIdError, busIdResults) => {
+        if (airlineIdError) {
+          console.error("Error fetching guideId:", busIdError);
+          return res.status(500).json({ error: "Error fetching guideId" });
+        }
+
+        if (busIdResults.length === 0) {
+          return res.status(404).json({ error: "bus not found not found" });
+        }
+
+        const busId = busIdResults[0].bus_id;
+
+        const insertQuery = `
+        INSERT INTO bus_details (bus_id, name, email, contact_number)
+        VALUES (?, ?, ?, ?)
+      `;
+        const insertValues = [
+          busId,
+          fullName,
+          email,
+          phoneNumber,
+        ];
+
+        pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+          if (insertError) {
+            console.error(
+              "Error inserting bus details:",
+              insertError
+            );
+            return res.status(500).json({ error: "Error inserting data" });
+          }
+        });
+        res
+          .status(200)
+          .json({ message: "bus details added successfully", busId });
+      }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+AuthRouter.post("/railway_details", async (req, res) => {
+  const { fullName, email, phoneNumber, transportId } =
+    req.body;
+    console.log(transportId);
+  try {
+    pool.query(
+      "SELECT railway_id FROM railway_transport WHERE transport_id  = ?",
+      [transportId],
+      (railwayIdError, railwayIdResults) => {
+        if (railwayIdError) {
+          console.error("Error fetching guideId:", railwayIdError);
+          return res.status(500).json({ error: "Error fetching railwayId" });
+        }
+
+        if (railwayIdResults.railwaylength === 0) {
+          return res.status(404).json({ error: "railway not found not found" });
+        }
+
+        const railwayId = railwayIdResults[0].bus_id;
+
+        const insertQuery = `
+        INSERT INTO railway_details (railway_id, name, email, contact_number)
+        VALUES (?, ?, ?, ?)
+      `;
+        const insertValues = [
+          railwayId,
+          fullName,
+          email,
+          phoneNumber,
+        ];
+
+        pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+          if (insertError) {
+            console.error(
+              "Error inserting railway details:",
+              insertError
+            );
+            return res.status(500).json({ error: "Error inserting data" });
+          }
+        });
+        res
+          .status(200)
+          .json({ message: "railway details added successfully", railwayId });
+      }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = AuthRouter;
