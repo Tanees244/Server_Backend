@@ -293,22 +293,106 @@ AuthRouter.post('/login', async (req, res) => {
         }
 
         const user = results[0];
-        const isPasswordMatch = true;
 
-        if (!isPasswordMatch) {
-          console.log('Incorrect password for user:', email);
-          return res.status(401).json({ error: 'Incorrect password' });
-        }
+        if (user.user_type === 'Guide') {
+          // Fetch guide_id from Guides table using user_id
+          pool.query(
+            'SELECT guide_id FROM guides WHERE user_id = ?',
+            [user.user_id],
+            async (guideError, guideResults) => {
+              if (guideError) {
+                console.error('Error fetching guide_id:', guideError);
+                return res.status(500).send('Error fetching guide_id');
+              }
 
-        const token = jwt.sign(
-          { userId: user.user_id, email: user.email },
-          'safarnama',
-          {
-            expiresIn: '1h',
+              if (!guideResults || guideResults.length === 0) {
+                console.log('Guide not found for user:', email);
+                return res.status(401).json({ error: 'Guide not found' });
+              }
+
+              const guideId = guideResults[0].guide_id;
+
+              // Fetch guide_application_id from guide_application using guide_id
+              pool.query(
+                'SELECT guide_application_id FROM guide_application WHERE guide_id = ?',
+                [guideId],
+                async (appError, appResults) => {
+                  if (appError) {
+                    console.error('Error fetching guide_application_id:', appError);
+                    return res.status(500).send('Error fetching guide_application_id');
+                  }
+
+                  if (!appResults || appResults.length === 0) {
+                    console.log('Guide application not found for user:', email);
+                    return res.status(401).json({ error: 'Guide application not found' });
+                  }
+
+                  const guideAppId = appResults[0].guide_application_id;
+
+                  // Fetch status from guide_application using guide_application_id
+                  pool.query(
+                    'SELECT status FROM guide_application WHERE guide_application_id = ?',
+                    [guideAppId],
+                    async (statusError, statusResults) => {
+                      if (statusError) {
+                        console.error('Error fetching status:', statusError);
+                        return res.status(500).send('Error fetching status');
+                      }
+
+                      if (!statusResults || statusResults.length === 0) {
+                        console.log('Status not found for user:', email);
+                        return res.status(401).json({ error: 'Status not found' });
+                      }
+
+                      const status = statusResults[0].status;
+
+                      if (status !== 'active') {
+                        console.log('Guide status is not active for user:', email);
+                        return res.status(401).json({ error: 'Guide status is not active' });
+                      }
+
+                      // Continue with password check and token generation
+                      const isPasswordMatch = true; // Placeholder for password check
+
+                      if (!isPasswordMatch) {
+                        console.log('Incorrect password for user:', email);
+                        return res.status(401).json({ error: 'Incorrect password' });
+                      }
+
+                      const token = jwt.sign(
+                        { userId: user.user_id, email: user.email },
+                        'safarnama',
+                        {
+                          expiresIn: '1h',
+                        }
+                      );
+
+                      res.status(201).json({ user, token });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        } else {
+          // For non-guide users, continue with password check and token generation
+          const isPasswordMatch = true; // Placeholder for password check
+
+          if (!isPasswordMatch) {
+            console.log('Incorrect password for user:', email);
+            return res.status(401).json({ error: 'Incorrect password' });
           }
-        );
 
-        res.status(201).json({ user, token });
+          const token = jwt.sign(
+            { userId: user.user_id, email: user.email },
+            'safarnama',
+            {
+              expiresIn: '1h',
+            }
+          );
+
+          res.status(201).json({ user, token });
+        }
       }
     );
   } catch (error) {
