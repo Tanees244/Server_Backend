@@ -3,6 +3,67 @@ const GuideRouter = express.Router();
 const bcrypt = require("bcryptjs");
 const pool = require("./Db/db");
 const jwt = require("jsonwebtoken");
+const { promisify } = require('util');
+const verifyAsync = promisify(jwt.verify);
+const secretKey = 'safarnama';
+
+GuideRouter.get('/guide-details', async (req, res) => {
+  const authToken = req.headers.authorization;
+  
+  if (!authToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const token = authToken.split(' ')[1];
+    const decodedToken = await verifyAsync(token, secretKey);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const userId = decodedToken.userId;
+
+    const guideIdQuery = 'SELECT guide_id FROM guides WHERE user_id = ?';
+
+    pool.query(guideIdQuery, [userId], async (error, guideIdResults) => {
+      if (error) {
+        console.error('Error fetching guide ID:', error);
+        return res.status(500).json({ error: 'Error fetching data' });
+      }
+
+      if (guideIdResults.length === 0) {
+        return res.status(404).json({ error: 'Guide not found' });
+      }
+
+      const guideId = guideIdResults[0].guide_id;
+
+      const guideDetailsQuery = `
+        SELECT name, age, email, address, contact_number, cnic_number
+        FROM guide_personal_details
+        WHERE guide_id = ?
+      `;
+
+      pool.query(guideDetailsQuery, [guideId], (err, guideDetailsResults) => {
+        if (err) {
+          console.error('Error fetching guide details:', err);
+          return res.status(500).json({ error: 'Error fetching data' });
+        }
+
+        if (guideDetailsResults.length === 0) {
+          return res.status(404).json({ error: 'Guide personal details not found' });
+        }
+
+        const guidePersonalDetails = guideDetailsResults[0];
+        res.status(200).json(guidePersonalDetails);
+      });
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 GuideRouter.post("/guide_personal_details", async (req, res) => {
   const { fullName, age, email, address, phoneNumber, cnicNumber, userId } =
