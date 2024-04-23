@@ -75,7 +75,6 @@ router.get("/hotel-details", (req, res) => {
       return;
     }
 
-    // Convert image data to base64
     results.forEach(hotel => {
       hotel.image = Buffer.from(hotel.image).toString('base64');
       hotel.gallery = hotel.gallery.split(',').map(image => image.trim());
@@ -88,10 +87,8 @@ router.get("/hotel-details", (req, res) => {
 });
 
 
-
 router.get("/package-details", (req, res) => {
   const userId = req.body;
-
   const query = `
         SELECT
             p1.destination,
