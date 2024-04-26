@@ -584,6 +584,149 @@ AdminRoutes.delete("/railway/:railwayId", (req, res) => {
   );
 });
 
+AdminRoutes.delete("/hotel/:hotelId", (req, res) => {
+  const hotelId = req.params.hotelId;
+
+  // Step 1: Select hotel_details_id from hotel_details using given hotel_id
+  pool.query(
+      `SELECT hotel_details_id FROM hotel_details WHERE hotel_id = ?`,
+      [hotelId],
+      (err, hotelDetailsResult) => {
+          if (err) {
+              console.error("Error executing query:", err);
+              res.status(500).send("Error deleting records");
+              return;
+          }
+
+          if (hotelDetailsResult.length > 0) {
+              const hotelDetailsId = hotelDetailsResult[0].hotel_details_id;
+
+              // Step 2: Delete records from package_hotel_details using hotel_details_id
+              pool.query(
+                  `DELETE FROM package_hotel_details WHERE hotel_details_id = ?`,
+                  [hotelDetailsId],
+                  (err) => {
+                      if (err) {
+                          console.error("Error executing query:", err);
+                          res.status(500).send("Error deleting records");
+                          return;
+                      }
+
+                      // Step 3: Delete records from hotel_details using given hotel_id
+                      pool.query(
+                          `DELETE FROM hotel_details WHERE hotel_id = ?`,
+                          [hotelId],
+                          (err) => {
+                              if (err) {
+                                  console.error("Error executing query:", err);
+                                  res.status(500).send("Error deleting records");
+                                  return;
+                              }
+
+                              // Step 4: Delete records from hotel_vendor_personal_details using given hotel_id
+                              pool.query(
+                                  `DELETE FROM hotel_vendor_personal_details WHERE hotel_id = ?`,
+                                  [hotelId],
+                                  (err) => {
+                                      if (err) {
+                                          console.error("Error executing query:", err);
+                                          res.status(500).send("Error deleting records");
+                                          return;
+                                      }
+
+                                      // Step 5: Select vendor_id from hotels table using given hotel_id
+                                      pool.query(
+                                          `SELECT vendor_id FROM hotels WHERE hotel_id = ?`,
+                                          [hotelId],
+                                          (err, vendorResult) => {
+                                              if (err) {
+                                                  console.error("Error executing query:", err);
+                                                  res.status(500).send("Error deleting records");
+                                                  return;
+                                              }
+
+                                              if (vendorResult.length > 0) {
+                                                  const vendorId = vendorResult[0].vendor_id;
+
+                                                  // Step 6: Delete records from hotels table using given hotel_id
+                                                  pool.query(
+                                                      `DELETE FROM hotels WHERE hotel_id = ?`,
+                                                      [hotelId],
+                                                      (err) => {
+                                                          if (err) {
+                                                              console.error("Error executing query:", err);
+                                                              res.status(500).send("Error deleting records");
+                                                              return;
+                                                          }
+
+                                                          // Step 7: Select user_id from vendors table using vendor_id
+                                                          pool.query(
+                                                              `SELECT user_id FROM vendors WHERE vendor_id = ?`,
+                                                              [vendorId],
+                                                              (err, userResult) => {
+                                                                  if (err) {
+                                                                      console.error("Error executing query:", err);
+                                                                      res.status(500).send("Error deleting records");
+                                                                      return;
+                                                                  }
+
+                                                                  if (userResult.length > 0) {
+                                                                      const userId = userResult[0].user_id;
+
+                                                                      // Step 8: Delete records from vendors using vendor_id
+                                                                      pool.query(
+                                                                          `DELETE FROM vendors WHERE vendor_id = ?`,
+                                                                          [vendorId],
+                                                                          (err) => {
+                                                                              if (err) {
+                                                                                  console.error("Error executing query:", err);
+                                                                                  res.status(500).send("Error deleting records");
+                                                                                  return;
+                                                                              }
+
+                                                                              // Step 9: Delete records from users using user_id
+                                                                              pool.query(
+                                                                                  `DELETE FROM users WHERE user_id = ?`,
+                                                                                  [userId],
+                                                                                  (err) => {
+                                                                                      if (err) {
+                                                                                          console.error("Error executing query:", err);
+                                                                                          res.status(500).send("Error deleting records");
+                                                                                          return;
+                                                                                      }
+
+                                                                                      res.sendStatus(204); // Successfully deleted
+                                                                                  }
+                                                                              );
+                                                                          }
+                                                                      );
+                                                                  } else {
+                                                                      console.error("No user found for the provided vendorId");
+                                                                      res.status(404).send("No user found");
+                                                                  }
+                                                              }
+                                                          );
+                                                      }
+                                                  );
+                                              } else {
+                                                  console.error("No vendor found for the provided hotelId");
+                                                  res.status(404).send("No vendor found");
+                                              }
+                                          }
+                                      );
+                                  }
+                              );
+                          }
+                      );
+                  }
+              );
+          } else {
+              console.error("No hotel details found for the provided hotelId");
+              res.status(404).send("No hotel details found");
+          }
+      }
+  );
+});
 
 
 module.exports = AdminRoutes;
