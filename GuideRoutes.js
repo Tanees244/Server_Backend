@@ -39,7 +39,7 @@ GuideRouter.get('/guide-details', async (req, res) => {
       const guideId = guideIdResults[0].guide_id;
 
       const guideDetailsQuery = `
-        SELECT name, age, email, address, contact_number, cnic_number
+        SELECT name, age, email, address, contact_number, cnic_number, guide_id
         FROM guide_personal_details
         WHERE guide_id = ?
       `;
@@ -56,6 +56,61 @@ GuideRouter.get('/guide-details', async (req, res) => {
 
         const guidePersonalDetails = guideDetailsResults[0];
         res.status(200).json(guidePersonalDetails);
+      });
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+GuideRouter.get('/guide-packages', async (req, res) => {
+  const authToken = req.headers.authorization;
+  
+  if (!authToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const token = authToken.split(' ')[1];
+    const decodedToken = await verifyAsync(token, secretKey);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const userId = decodedToken.userId;
+
+    const guideIdQuery = 'SELECT guide_id FROM guides WHERE user_id = ?';
+
+    pool.query(guideIdQuery, [userId], async (error, guideIdResults) => {
+      if (error) {
+        console.error('Error fetching guide ID:', error);
+        return res.status(500).json({ error: 'Error fetching guide ID' });
+      }
+
+      if (guideIdResults.length === 0) {
+        return res.status(404).json({ error: 'Guide not found' });
+      }
+
+      const guideId = guideIdResults[0].guide_id;
+
+      const guideDetailsQuery = `
+        SELECT *
+        FROM guide_operations
+        WHERE guide_id = ?
+      `;
+
+      pool.query(guideDetailsQuery, [guideId], (err, guideDetailsResults) => {
+        if (err) {
+          console.error('Error fetching guide details:', err);
+          return res.status(500).json({ error: 'Error fetching guide details' });
+        }
+
+        if (guideDetailsResults.length === 0) {
+          return res.status(404).json({ error: 'Guide operation details not found' });
+        }
+
+        res.status(200).json(guideDetailsResults);
       });
     });
   } catch (error) {
@@ -287,6 +342,27 @@ GuideRouter.put("/update_guide_status/:id", async (req, res) => {
   } catch (error) {
     console.error('Error processing request:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+GuideRouter.get("/guide-packages/:status", async (req, res) => {
+  const { status } = req.params;
+
+  try {
+    const query = `
+      SELECT p.package_id, p.name, p.description, p.price
+      FROM packages p
+      INNER JOIN guides_packages gp ON p.package_id = gp.package_id
+      INNER JOIN guides g ON gp.guide_id = g.guide_id
+      WHERE g.status = ?
+    `;
+
+    const [packages, fields] = await pool.query(query, [status]);
+
+    res.status(200).json({ packages });
+  } catch (error) {
+    console.error("Error fetching guide packages:", error);
+    res.status(500).json({ error: "Error fetching data" });
   }
 });
 

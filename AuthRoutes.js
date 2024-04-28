@@ -312,7 +312,6 @@ AuthRouter.post('/login', async (req, res) => {
 
               const guideId = guideResults[0].guide_id;
 
-              // Fetch guide_application_id from guide_application using guide_id
               pool.query(
                 'SELECT guide_application_id FROM guide_application WHERE guide_id = ?',
                 [guideId],
