@@ -7,13 +7,17 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const AuthRoutes = require('./AuthRoutes');
-app.use('/api/authRoutes', AuthRoutes);
 const Routes = require('./Routes');
-app.use('/api/routes', Routes);
 const AdminRoutes = require('./AdminRoutes');
-app.use('/api/adminRoutes', AdminRoutes);
 const GuideRoutes = require('./GuideRoutes');
+const VendorsRoutes = require('./VendorsRoutes'); // Import VendorsRoutes
+
+// Use routes
+app.use('/api/authRoutes', AuthRoutes);
+app.use('/api/routes', Routes);
+app.use('/api/adminRoutes', AdminRoutes);
 app.use('/api/guideRoutes', GuideRoutes);
+app.use('/api/vendorsRoutes', VendorsRoutes);
 
 app.listen(8000, () => {
     console.log(`Server is running on port 8000`);
