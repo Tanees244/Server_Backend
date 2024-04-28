@@ -136,6 +136,7 @@ AuthRouter.post("/register", (req, res) => {
                             }
                             res.status(201).json({
                               message: "User registered successfully",
+                              userId
                             });
                           }
                         );
@@ -295,7 +296,6 @@ AuthRouter.post('/login', async (req, res) => {
         const user = results[0];
 
         if (user.user_type === 'Guide') {
-          // Fetch guide_id from Guides table using user_id
           pool.query(
             'SELECT guide_id FROM guides WHERE user_id = ?',
             [user.user_id],
@@ -312,7 +312,6 @@ AuthRouter.post('/login', async (req, res) => {
 
               const guideId = guideResults[0].guide_id;
 
-              // Fetch guide_application_id from guide_application using guide_id
               pool.query(
                 'SELECT guide_application_id FROM guide_application WHERE guide_id = ?',
                 [guideId],
@@ -329,7 +328,6 @@ AuthRouter.post('/login', async (req, res) => {
 
                   const guideAppId = appResults[0].guide_application_id;
 
-                  // Fetch status from guide_application using guide_application_id
                   pool.query(
                     'SELECT status FROM guide_application WHERE guide_application_id = ?',
                     [guideAppId],
@@ -351,8 +349,7 @@ AuthRouter.post('/login', async (req, res) => {
                         return res.status(401).json({ error: 'Guide status is not active' });
                       }
 
-                      // Continue with password check and token generation
-                      const isPasswordMatch = true; // Placeholder for password check
+                      const isPasswordMatch = true; 
 
                       if (!isPasswordMatch) {
                         console.log('Incorrect password for user:', email);
@@ -374,7 +371,73 @@ AuthRouter.post('/login', async (req, res) => {
               );
             }
           );
-        } else {
+        } else if (user.user_type === 'Vendor') {
+          pool.query(
+            'SELECT vendor_id, vendor_type FROM vendors WHERE user_id = ?',
+            [user.user_id],
+            async (vendorError, vendorResults) => {
+              if (vendorError) {
+                console.error('Error fetching vendor type:', vendorError);
+                return res.status(500).send('Error fetching vendor type');
+              }
+              
+              if (!vendorResults || vendorResults.length === 0) {
+                console.log('Vendor not found for user:', email);
+                return res.status(401).json({ error: 'Vendor not found' });
+              }
+              
+              const vendorType = vendorResults[0].vendor_type;
+              const vendorId = vendorResults[0].vendor_id;
+              console.log(vendorType)
+              if (vendorType === 'Hotel') {
+                const token = jwt.sign(
+                  { userId: user.user_id, email: user.email },
+                  'safarnama',
+                  {
+                    expiresIn: '1h',
+                  }
+                );
+
+                return res.status(200).json({ user, isHotel: true, token });
+
+              }else if (vendorType === 'Transport') {
+                pool.query(
+                  'SELECT * FROM transport WHERE vendor_id = ?',
+                  [vendorId],
+                  async (transportError, transportResults) => {
+                    if (transportError) {
+                      console.error('Error fetching transport:', transportError);
+                      return res.status(500).send('Error fetching transport');
+                    }
+
+                    if (!transportResults || transportResults.length === 0) {
+                      console.log('Transport not found for user:', email);
+                      return res.status(401).json({ error: 'Transport not found' });
+                    }
+
+                    const transportType = transportResults[0].transport_type;
+
+                    if (transportType === 'Airline' || transportType === 'Railway' || transportType === 'Bus') {
+                      const token = jwt.sign(
+                        { userId: user.user_id, email: user.email },
+                        'safarnama',
+                        {
+                          expiresIn: '1h',
+                        }
+                      );
+                      return res.status(200).json({ user, transportType, token });
+                    } else {
+                      return res.status(401).json({ error: 'Invalid transport type' });
+                    }
+                  }
+                );
+              }  else {
+                return res.status(200).json({ user });
+              }
+            }
+          );
+        } 
+        else {
           // For non-guide users, continue with password check and token generation
           const isPasswordMatch = true; // Placeholder for password check
 
@@ -459,7 +522,7 @@ AuthRouter.post("/guide_submit_documents", async (req, res) => {
   const { image1, image2, image3, image4, guideId } = req.body;
 
   try {
-    const insertQuery =`UPDATE guide_personal_details 
+    const insertQuery = `UPDATE guide_personal_details 
     SET picture = ?, cnic_front_picture = ?, cnic_back_picture = ?, guide_license_picture = ?
     WHERE guide_id = ?
   `;
@@ -556,7 +619,7 @@ AuthRouter.post('/guide_questionnaire', async (req, res) => {
 AuthRouter.post("/airline_details", async (req, res) => {
   const { fullName, email, phoneNumber, transportId } =
     req.body;
-    console.log(transportId);
+  console.log(transportId);
   try {
     pool.query(
       "SELECT airline_id FROM airline_transport WHERE transport_id  = ?",
@@ -607,7 +670,7 @@ AuthRouter.post("/airline_details", async (req, res) => {
 AuthRouter.post("/bus_details", async (req, res) => {
   const { fullName, email, phoneNumber, transportId } =
     req.body;
-    console.log(transportId);
+  console.log(transportId);
   try {
     pool.query(
       "SELECT bus_id FROM bus_transport WHERE transport_id  = ?",
@@ -658,7 +721,7 @@ AuthRouter.post("/bus_details", async (req, res) => {
 AuthRouter.post("/railway_details", async (req, res) => {
   const { fullName, email, phoneNumber, transportId } =
     req.body;
-    console.log(transportId);
+  console.log(transportId);
   try {
     pool.query(
       "SELECT railway_id FROM railway_transport WHERE transport_id  = ?",
@@ -700,6 +763,75 @@ AuthRouter.post("/railway_details", async (req, res) => {
           .json({ message: "railway details added successfully", railwayId });
       }
     );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+AuthRouter.post("/hotel_vendor_personal_details", async (req, res) => {
+  const { name, age, email, address, contact_number, cnic_number, picture, userId } = req.body;
+
+  try {
+    const vendorQuery = `
+      SELECT vendor_id FROM vendors WHERE user_id = ?
+    `;
+    pool.query(vendorQuery, [userId], (vendorError, vendorResults) => {
+      if (vendorError) {
+        console.error("Error fetching vendor_id:", vendorError);
+        return res.status(500).json({ error: "Error fetching vendor_id" });
+      }
+
+      if (vendorResults.length === 0) {
+        return res.status(404).json({ error: "Vendor not found" });
+      }
+
+      const vendor_id = vendorResults[0].vendor_id;
+
+      const hotelQuery = `
+        SELECT hotel_id FROM hotels WHERE vendor_id = ?
+      `;
+      pool.query(hotelQuery, [vendor_id], (hotelError, hotelResults) => {
+        if (hotelError) {
+          console.error("Error fetching hotel_id:", hotelError);
+          return res.status(500).json({ error: "Error fetching hotel_id" });
+        }
+
+        if (hotelResults.length === 0) {
+          return res.status(404).json({ error: "Hotel not found" });
+        }
+
+        const hotel_id = hotelResults[0].hotel_id;
+
+        const insertQuery = `
+          INSERT INTO hotel_vendor_personal_details (hotel_id, name, age, email, address, contact_number, cnic_number, picture)
+          VALUES (?, ?, ?, ?, ?, ?, ?,?)
+        `;
+        const insertValues = [
+          hotel_id,
+          name,
+          age,
+          email,
+          address,
+          contact_number,
+          cnic_number,
+          picture,
+        ];
+
+        pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+          if (insertError) {
+            console.error(
+              "Error inserting personal details:",
+              insertError
+            );
+            return res.status(500).json({ error: "Error inserting data" });
+          }
+
+          // If insertion is successful, send a success response
+          res.status(200).json({ message: "Personal details registered successfully" });
+        });
+      });
+    });
   } catch (error) {
     console.error("Error processing request:", error);
     return res.status(500).json({ error: "Internal server error" });
