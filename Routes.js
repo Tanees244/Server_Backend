@@ -14,8 +14,8 @@ router.get("/places", (req, res) => {
       return;
     }
     results.forEach(place => {
-      place.image = Buffer.from(place.image).toString('base64');
-      // place.gallery = place.gallery.split(',').map(image => image.trim());
+      place.images = Buffer.from(place.images).toString('base64');
+       place.gallery = place.gallery.split(',').map(image => image.trim());
     });
 
     res.json(results);
@@ -46,7 +46,12 @@ router.get("/railway-packages", (req, res) => {
 
 
 router.get("/airline-packages", (req, res) => {
-  pool.query("SELECT * from airline_packages", (error, results, feilds) => {
+  const query = `
+    SELECT ap.*, ad.name 
+    FROM airline_packages AS ap 
+    JOIN airline_details AS ad ON ap.airline_details_id = ad.airline_details_id
+  `;
+  pool.query(query, (error, results, fields) => {
     if (error) {
       console.error("Error executing query:", error);
       res.status(500).send("Error fetching data");
@@ -55,6 +60,7 @@ router.get("/airline-packages", (req, res) => {
     res.json(results);
   });
 });
+
 
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
@@ -67,24 +73,23 @@ router.get("/bus-packages", (req, res) => {
   });
 });
 
-// router.get("/hotel-details", (req, res) => {
-//   pool.query("SELECT * FROM hotel_details", (error, results, fields) => {
-//     if (error) {
-//       console.error("Error executing query:", error);
-//       res.status(500).send("Error fetching data");
-//       return;
-//     }
+router.get("/hotel-details", (req, res) => {
+  pool.query("SELECT * FROM hotel_details", (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+ 
+    results.forEach(hotel => {
+      hotel.images = Buffer.from(hotel.images).toString('base64');
+      hotel.gallery = hotel.gallery.split(',').map(image => image.trim());
+    });
 
-//     // Convert image data to base64
-//     results.forEach(hotel => {
-//       hotel.image = Buffer.from(hotel.image).toString('base64');
-//       hotel.gallery = hotel.gallery.split(',').map(image => image.trim());
-//     });
+    res.json(results);
+  });
+});
 
-
-//     res.json(results);
-//   });
-// });
 router.get('/tourist-details', async (req, res) => {
   
   const authToken = req.headers.authorization;
