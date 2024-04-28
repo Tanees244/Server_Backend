@@ -141,7 +141,6 @@ router.get('/tourist-details', async (req, res) => {
 
 router.get("/package-details", (req, res) => {
   const userId = req.body;
-
   const query = `
         SELECT
             p1.destination,
