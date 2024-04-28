@@ -39,7 +39,7 @@ GuideRouter.get('/guide-details', async (req, res) => {
       const guideId = guideIdResults[0].guide_id;
 
       const guideDetailsQuery = `
-        SELECT name, age, email, address, contact_number, cnic_number, guide_id
+        SELECT *
         FROM guide_personal_details
         WHERE guide_id = ?
       `;
