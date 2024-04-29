@@ -63,6 +63,7 @@ GuideRouter.get('/guide-details', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 GuideRouter.get('/guide-packages', async (req, res) => {
   const authToken = req.headers.authorization;
   
@@ -95,9 +96,24 @@ GuideRouter.get('/guide-packages', async (req, res) => {
       const guideId = guideIdResults[0].guide_id;
 
       const guideDetailsQuery = `
-        SELECT *
-        FROM guide_operations
-        WHERE guide_id = ?
+        SELECT
+          go.guide_id,
+          go.package_id,
+          go.user_rating,
+          go.guide_rating,
+          go.status,
+          p.tourist_id,
+          p.destination,
+          p.start_date,
+          p.end_date,
+          p.no_of_person,
+          td.name,
+          td.contact_no,
+          td.picture
+        FROM guide_operations go
+        JOIN packages p ON go.package_id = p.package_id
+        JOIN tourist_details td ON p.tourist_id = td.tourist_id
+        WHERE go.guide_id = ?
       `;
 
       pool.query(guideDetailsQuery, [guideId], (err, guideDetailsResults) => {
@@ -110,6 +126,7 @@ GuideRouter.get('/guide-packages', async (req, res) => {
           return res.status(404).json({ error: 'Guide operation details not found' });
         }
 
+        // Send guide operation details including tourist details in the response
         res.status(200).json(guideDetailsResults);
       });
     });
@@ -118,7 +135,6 @@ GuideRouter.get('/guide-packages', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 GuideRouter.post("/guide_personal_details", async (req, res) => {
   const { fullName, age, email, address, phoneNumber, cnicNumber, userId } =
