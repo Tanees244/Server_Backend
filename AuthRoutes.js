@@ -266,8 +266,6 @@ AuthRouter.post("/register", (req, res) => {
   );
 });
 
-
-
 AuthRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
   console.log(email, password);
@@ -561,7 +559,6 @@ AuthRouter.post("/guide_experience", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 AuthRouter.post("/guide_bank_details", async (req, res) => {
   const { guideId, accountName, ibanNumber } = req.body;

@@ -1240,93 +1240,266 @@ VendorRouter.delete('/delete_railway_package/:railway_package_id', async (req, r
 });
 
 
-VendorRouter.post('/hotel_packages', (req, res) => {
-    const authToken = req.headers.authorization;
-    if (!authToken) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    const token = authToken.split(' ')[1];
+VendorRouter.post('/hotel_packages', async (req, res) => {
+    try {
+        // Extract token from request headers
+        const authToken = req.headers.authorization;
+        if (!authToken) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const token = authToken.split(' ')[1];
 
-    // Verify and decode the token
-    jwt.verify(token, secretKey, (err, decodedToken) => {
-        if (err) {
+        // Decode token to get userId
+        const decodedToken = await verifyAsync(token, secretKey);
+        if (!decodedToken) {
             return res.status(401).json({ error: 'Invalid token' });
         }
         const userId = decodedToken.userId;
 
-        const getVendorIdQuery = 'SELECT vendor_id FROM vendors WHERE user_id = ?';
-
-        db.query(getVendorIdQuery, userId, (err, vendorResult) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-            } else {
-                const vendorId = vendorResult[0].vendor_id;
-
-                // Fetch hotel_id from hotels table using vendor_id
-                const getHotelIdQuery = 'SELECT hotel_id FROM hotels WHERE vendor_id = ?';
-
-                db.query(getHotelIdQuery, vendorId, (err, hotelResult) => {
-                    if (err) {
-                        res.status(500).json({ error: err.message });
-                    } else {
-                        const hotelId = hotelResult[0].hotel_id;
-
-                        const hotelDetails = req.body;
-                        hotelDetails.hotel_id = hotelId; // Add hotel_id to the hotel details object
-
-                        // Insert hotel details into the database
-                        const sql = `INSERT INTO hotel_details 
-                          (hotel_id, name, area, city, description, facilities, 
-                          rooms_single_bed, rooms_double_bed, rooms_standard, rooms_executive, 
-                          price_single_bed, price_double_bed, price_standard, price_executive, 
-                          adults_single_bed, children_single_bed, adults_double_bed, children_double_bed, 
-                          adults_standard, children_standard, adults_executive, children_executive, 
-                          email, contact_number, images, rating, reviews, gallery) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-                        const values = [
-                            hotelDetails.hotel_id,
-                            hotelDetails.name,
-                            hotelDetails.area,
-                            hotelDetails.city,
-                            hotelDetails.description,
-                            hotelDetails.facilities,
-                            hotelDetails.rooms_single_bed,
-                            hotelDetails.rooms_double_bed,
-                            hotelDetails.rooms_standard,
-                            hotelDetails.rooms_executive,
-                            hotelDetails.price_single_bed,
-                            hotelDetails.price_double_bed,
-                            hotelDetails.price_standard,
-                            hotelDetails.price_executive,
-                            hotelDetails.adults_single_bed,
-                            hotelDetails.children_single_bed,
-                            hotelDetails.adults_double_bed,
-                            hotelDetails.children_double_bed,
-                            hotelDetails.adults_standard,
-                            hotelDetails.children_standard,
-                            hotelDetails.adults_executive,
-                            hotelDetails.children_executive,
-                            hotelDetails.email,
-                            hotelDetails.contact_number,
-                            hotelDetails.images,
-                            hotelDetails.rating,
-                            hotelDetails.reviews,
-                            hotelDetails.gallery,
-                        ];
-
-                        db.query(sql, values, (err, result) => {
-                            if (err) {
-                                res.status(500).json({ error: err.message });
-                            } else {
-                                res.status(200).json({ message: 'Hotel details inserted successfully' });
-                            }
-                        });
-                    }
-                });
+        // Fetch vendor_id from vendors table using user_id
+        pool.query('SELECT vendor_id FROM vendors WHERE user_id = ?', [userId], (vendorIdError, vendorIdResults) => {
+            if (vendorIdError) {
+                console.error('Error fetching vendor ID:', vendorIdError);
+                return res.status(500).json({ error: 'Error fetching data' });
             }
+
+            if (vendorIdResults.length === 0) {
+                return res.status(404).json({ error: 'Vendor not found' });
+            }
+
+            const vendorId = vendorIdResults[0].vendor_id;
+
+            // Fetch hotel_id from hotels table using vendor_id
+            const getHotelIdQuery = 'SELECT hotel_id FROM hotels WHERE vendor_id = ?';
+            pool.query(getHotelIdQuery, [vendorId], (error, hotelResult) => {
+                if (error) {
+                    console.error('Error fetching hotel ID:', error);
+                    return res.status(500).json({ error: 'Error fetching data' });
+                }
+
+                if (hotelResult.length === 0) {
+                    return res.status(404).json({ error: 'Hotel not found' });
+                }
+
+                const hotelId = hotelResult[0].hotel_id;
+
+                // Extract hotel details from request body
+                const { name, area, city, description, facilities, rooms_single_bed, rooms_double_bed, rooms_standard_bed, rooms_executive, price_single_bed, price_double_bed, price_standard, price_executive, adults_single_bed, children_single_bed, adults_double_bed, children_double_bed, adults_standard, children_standard, adults_executive, children_executive, email, contact_number, images } = req.body;
+                console.log(facilities)
+
+                const gallery = "https://www.pineparkshogran.com/wp-content/uploads/2022/06/ABR_8577_DxO.jpg,https://www.pineparkshogran.com/wp-content/uploads/slider/cache/3f52d226ef5d4e5c82c33969d0b795d1/ABR_7377_DxO-copy.jpg,https://shogranvalley.com/wp-content/uploads/2023/04/Untitled-2.png,https://shogranvalley.com/wp-content/uploads/2023/04/6.png";
+
+// Split the gallery string by commas to get an array of URLs
+const galleryArray = gallery.split(',');
+
+// Join the array elements into a single string with commas as separators
+const galleryString = galleryArray.join(',');
+                // Insert hotel details into the database
+                const sql = `
+                INSERT INTO hotel_details 
+                (
+                    hotel_id, name, area, city, description, facilities, 
+                    rooms_single_bed, rooms_double_bed, rooms_standard, rooms_executive, 
+                    price_single_bed, price_double_bed, price_standard, price_executive, 
+                    adults_single_bed, children_single_bed, adults_double_bed, children_double_bed, 
+                    adults_standard, children_standard, adults_executive, children_executive, 
+                    email, contact_number, images, rating, reviews, gallery
+                ) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            
+
+                const values = [
+                    hotelId,
+                    name,
+                    area,
+                    city,
+                    description,
+                    facilities,
+                    rooms_single_bed,
+                    rooms_double_bed,
+                    rooms_standard_bed,
+                    rooms_executive,
+                    price_single_bed,
+                    price_double_bed,
+                    price_standard,
+                    price_executive,
+                    adults_single_bed,
+                    children_single_bed,
+                    adults_double_bed,
+                    children_double_bed,
+                    adults_standard,
+                    children_standard,
+                    adults_executive,
+                    children_executive,
+                    email,
+                    contact_number,
+                    images,
+                    null, // rating
+                    null, // reviews
+                    galleryString, // gallery
+                ];
+
+                pool.query(sql, values, (insertError, result) => {
+                    if (insertError) {
+                        console.error('Error inserting hotel details:', insertError);
+                        return res.status(500).json({ error: 'Error inserting hotel details' });
+                    }
+                    res.status(200).json({ message: 'Hotel details inserted successfully' });
+                });
+            });
+        }); 
+    } catch (error) {
+        console.error("Error inserting hotel details:", error);
+        // Return error response
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
+
+
+VendorRouter.get('/hotel-vendor-details', async (req, res) => {
+    const authToken = req.headers.authorization;
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Step 1: Select vendor_id from vendors table using given user_Id
+        const vendorIdQuery = 'SELECT vendor_id FROM vendors WHERE user_id = ?';
+        pool.query(vendorIdQuery, [userId], async (error, vendorIdResults) => {
+            if (error) {
+                console.error('Error fetching vendor ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (vendorIdResults.length === 0) {
+                return res.status(404).json({ error: 'Vendor not found' });
+            }
+
+            const vendorId = vendorIdResults[0].vendor_id;
+
+            // Step 2: Select hotel_id from hotels table using vendor_id
+            const hotelIdQuery = 'SELECT hotel_id FROM hotels WHERE vendor_id = ?';
+            pool.query(hotelIdQuery, [vendorId], async (error, hotelIdResults) => {
+                if (error) {
+                    console.error('Error fetching hotel ID:', error);
+                    return res.status(500).json({ error: 'Error fetching data' });
+                }
+
+                if (hotelIdResults.length === 0) {
+                    return res.status(404).json({ error: 'Hotel not found' });
+                }
+
+                const hotelId = hotelIdResults[0].hotel_id;
+
+                // Step 3: Select all from hotel_details table using hotel_id
+                const hotelDetailsQuery = 'SELECT * FROM hotel_vendor_personal_details WHERE hotel_id = ?';
+                pool.query(hotelDetailsQuery, [hotelId], async (error, hotelDetailsResults) => {
+                    if (error) {
+                        console.error('Error fetching hotel details:', error);
+                        return res.status(500).json({ error: 'Error fetching data' });
+                    }
+
+                    if (hotelDetailsResults.length === 0) {
+                        return res.status(404).json({ error: 'Hotel details not found' });
+                    }
+
+                    // Respond with hotel details
+                    hotelDetailsResults.forEach(place => {
+                        place.picture = Buffer.from(place.picture).toString('base64');
+                      });
+                    res.status(200).json(hotelDetailsResults[0]);
+                });
+            });
         });
-    });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+VendorRouter.get('/hotel-details', async (req, res) => {
+    const authToken = req.headers.authorization;
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Step 1: Select vendor_id from vendors table using given user_Id
+        const vendorIdQuery = 'SELECT vendor_id FROM vendors WHERE user_id = ?';
+        pool.query(vendorIdQuery, [userId], async (error, vendorIdResults) => {
+            if (error) {
+                console.error('Error fetching vendor ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (vendorIdResults.length === 0) {
+                return res.status(404).json({ error: 'Vendor not found' });
+            }
+
+            const vendorId = vendorIdResults[0].vendor_id;
+
+            // Step 2: Select hotel_id from hotels table using vendor_id
+            const hotelIdQuery = 'SELECT hotel_id FROM hotels WHERE vendor_id = ?';
+            pool.query(hotelIdQuery, [vendorId], async (error, hotelIdResults) => {
+                if (error) {
+                    console.error('Error fetching hotel ID:', error);
+                    return res.status(500).json({ error: 'Error fetching data' });
+                }
+
+                if (hotelIdResults.length === 0) {
+                    return res.status(404).json({ error: 'Hotel not found' });
+                }
+
+                const hotelId = hotelIdResults[0].hotel_id;
+
+                // Step 3: Select all from hotel_details table using hotel_id
+                const hotelDetailsQuery = 'SELECT * FROM hotel_details WHERE hotel_id = ?';
+                pool.query(hotelDetailsQuery, [hotelId], async (error, hotelDetailsResults) => {
+                    if (error) {
+                        console.error('Error fetching hotel details:', error);
+                        return res.status(500).json({ error: 'Error fetching data' });
+                    }
+
+                    if (hotelDetailsResults.length === 0) {
+                        return res.status(404).json({ error: 'Hotel details not found' });
+                    }
+
+                    // Respond with hotel details
+                    hotelDetailsResults.forEach(place => {
+                        place.images = Buffer.from(place.images).toString('base64');
+                         place.gallery = place.gallery.split(',').map(image => image.trim());
+                      });
+                    res.status(200).json(hotelDetailsResults);
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 module.exports = VendorRouter;

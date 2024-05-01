@@ -126,7 +126,6 @@ GuideRouter.put('/update-user-rating', async (req, res) => {
   }
 });
 
-
 GuideRouter.get('/guide-packages', async (req, res) => {
   const authToken = req.headers.authorization;
   
@@ -391,10 +390,6 @@ GuideRouter.get("/guide_applications", async (req, res) => {
         };
         return acc;
       }, {});
-
-
-
-console.log(usersObject);
       res.status(200).json(usersObject);
     });
   } catch (error) {

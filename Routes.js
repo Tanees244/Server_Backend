@@ -44,7 +44,6 @@ router.get("/railway-packages", (req, res) => {
   });
 });
 
-
 router.get("/airline-packages", (req, res) => {
   const query = `
     SELECT ap.*, ad.name 
@@ -60,7 +59,6 @@ router.get("/airline-packages", (req, res) => {
     res.json(results);
   });
 });
-
 
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
