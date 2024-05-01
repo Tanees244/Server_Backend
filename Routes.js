@@ -60,6 +60,27 @@ router.get("/airline-packages", (req, res) => {
   });
 });
 
+router.get("/airline-packages/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  console.log(ticketId);
+  const query = `
+    SELECT ap.*, ad.name 
+    FROM airline_packages AS ap 
+    JOIN airline_details AS ad ON ap.airline_details_id = ad.airline_details_id
+    WHERE ap.flight_number = ?
+  `;
+  pool.query(query, [ticketId], (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+    console.log(results);
+    res.json(results);
+  });
+});
+
+
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
     if (error) {
@@ -267,7 +288,5 @@ router.post('/create-package', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-
 
 module.exports = router;
