@@ -53,7 +53,9 @@ GuideRouter.get('/guide-details', async (req, res) => {
         if (guideDetailsResults.length === 0) {
           return res.status(404).json({ error: 'Guide personal details not found' });
         }
-
+        guideDetailsResults.forEach(place => {
+          place.picture = Buffer.from(place.picture).toString('base64');
+        });
         const guidePersonalDetails = guideDetailsResults[0];
         res.status(200).json(guidePersonalDetails);
       });
