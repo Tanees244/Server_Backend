@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("./Db/db");
-const jwt = require('jsonwebtoken');
-const { promisify } = require('util');
+const jwt = require("jsonwebtoken");
+const { promisify } = require("util");
 const verifyAsync = promisify(jwt.verify);
-const secretKey = 'safarnama';
+const secretKey = "safarnama";
 
 router.get("/places", (req, res) => {
   pool.query("SELECT * from places", (error, results, fields) => {
@@ -13,9 +13,9 @@ router.get("/places", (req, res) => {
       res.status(500).send("Error fetching data");
       return;
     }
-    results.forEach(place => {
-      place.images = Buffer.from(place.images).toString('base64');
-       place.gallery = place.gallery.split(',').map(image => image.trim());
+    results.forEach((place) => {
+      place.images = Buffer.from(place.images).toString("base64");
+      place.gallery = place.gallery.split(",").map((image) => image.trim());
     });
 
     res.json(results);
@@ -80,6 +80,183 @@ router.get("/airline-packages/:ticketId", (req, res) => {
   });
 });
 
+router.get("/railway-packages/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  console.log(ticketId);
+  const query = `
+    SELECT rp.*, rd.name 
+    FROM railway_packages AS rp 
+    JOIN railway_details AS rd ON rp.railway_details_id = rd.railway_details_id
+    WHERE rp.train_number = ?
+  `;
+  pool.query(query, [ticketId], (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching railway data");
+      return;
+    }
+    console.log(results);
+    res.json(results);
+  });
+});
+
+// Similarly, create an API endpoint for bus tickets
+router.get("/bus-packages/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  console.log(ticketId);
+  const query = `
+    SELECT bp.*, bd.name 
+    FROM bus_packages AS bp 
+    JOIN bus_details AS bd ON bp.bus_details_id = bd.bus_details_id
+    WHERE bp.bus_number = ?
+  `;
+  pool.query(query, [ticketId], (error, results) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching bus data");
+      return;
+    }
+    console.log(results);
+    res.json(results);
+  });
+});
+
+router.post("/add-airline-package-details/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  const { package_id } = req.body;
+
+  console.log(ticketId);
+  console.log(package_id);
+
+  const airlineOperationQuery = `
+    SELECT airline_operations_id 
+    FROM airline_packages 
+    WHERE flight_number = ?
+  `;
+
+  pool.query(airlineOperationQuery, [ticketId], (error, results) => {
+    if (error) {
+      console.error("Error executing airline operation query:", error);
+      return res.status(500).send("Error fetching data");
+    }
+
+    console.log(results); // Log the entire results to see the structure
+
+    if (!results || results.length === 0) {
+      return res.status(404).send("Ticket not found");
+    }
+
+    const airlineOperationsId = results[0].airline_operations_id;
+    console.log(airlineOperationsId);
+
+    const insertQuery = `
+      INSERT INTO package_details (package_id, airline_operations_id) 
+      VALUES (?, ?)
+    `;
+    const values = [package_id, airlineOperationsId];
+
+    pool.query(insertQuery, values, (insertError, _) => {
+      if (insertError) {
+        console.error("Error executing insert query:", insertError);
+        return res.status(500).send("Error inserting data");
+      }
+
+      res.status(200).send("Package details inserted successfully");
+    });
+  });
+});
+
+router.post("/add-bus-package-details/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  const { package_id } = req.body;
+
+  console.log(ticketId);
+  console.log(package_id);
+
+  const busOperationQuery = `
+    SELECT bus_package_id 
+    FROM bus_packages 
+    WHERE bus_number = ?
+  `;
+
+  pool.query(busOperationQuery, [ticketId], (error, results) => {
+    if (error) {
+      console.error("Error executing bus operation query:", error);
+      return res.status(500).send("Error fetching data");
+    }
+
+    console.log(results); // Log the entire results to see the structure
+
+    if (!results || results.length === 0) {
+      return res.status(404).send("Ticket not found");
+    }
+
+    const busOperationsId = results[0].bus_package_id;
+    console.log(busOperationsId);
+
+    const insertQuery = `
+      INSERT INTO package_details (package_id, bus_package_id) 
+      VALUES (?, ?)
+    `;
+    const values = [package_id, busOperationsId];
+
+    pool.query(insertQuery, values, (insertError, _) => {
+      if (insertError) {
+        console.error("Error executing insert query:", insertError);
+        return res.status(500).send("Error inserting data");
+      }
+
+      res.status(200).send("Package details inserted successfully");
+    });
+  });
+});
+
+router.post("/add-railway-package-details/:ticketId", (req, res) => {
+  const { ticketId } = req.params;
+  const { package_id } = req.body;
+
+  console.log(ticketId);
+  console.log(package_id);
+
+  const railwayOperationQuery = `
+    SELECT railway_package_id 
+    FROM railway_packages 
+    WHERE train_number = ?
+  `;
+
+  pool.query(railwayOperationQuery, [ticketId], (error, results) => {
+    if (error) {
+      console.error("Error executing railway operation query:", error);
+      return res.status(500).send("Error fetching data");
+    }
+
+    console.log(results); // Log the entire results to see the structure
+
+    if (!results || results.length === 0) {
+      return res.status(404).send("Ticket not found");
+    }
+
+    const railwayOperationsId = results[0].railway_package_id;
+    console.log(railwayOperationsId);
+
+    const insertQuery = `
+      INSERT INTO package_details (package_id, railway_package_id) 
+      VALUES (?, ?)
+    `;
+    const values = [package_id, railwayOperationsId];
+
+    pool.query(insertQuery, values, (insertError, _) => {
+      if (insertError) {
+        console.error("Error executing insert query:", insertError);
+        return res.status(500).send("Error inserting data");
+      }
+
+      res.status(200).send("Package details inserted successfully");
+    });
+  });
+});
+
+
 
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
@@ -99,30 +276,29 @@ router.get("/hotel-details", (req, res) => {
       res.status(500).send("Error fetching data");
       return;
     }
- 
-    results.forEach(hotel => {
-      hotel.images = Buffer.from(hotel.images).toString('base64');
-      hotel.gallery = hotel.gallery.split(',').map(image => image.trim());
+
+    results.forEach((hotel) => {
+      hotel.images = Buffer.from(hotel.images).toString("base64");
+      hotel.gallery = hotel.gallery.split(",").map((image) => image.trim());
     });
 
     res.json(results);
   });
 });
 
-router.get('/tourist-details', async (req, res) => {
-  
+router.get("/tourist-details", async (req, res) => {
   const authToken = req.headers.authorization;
-  
+
   if (!authToken) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    const token = authToken.split(' ')[1];
+    const token = authToken.split(" ")[1];
     const decodedToken = await verifyAsync(token, secretKey);
 
     if (!decodedToken) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     const userId = decodedToken.userId;
@@ -133,28 +309,28 @@ router.get('/tourist-details', async (req, res) => {
       INNER JOIN tourists t ON td.tourist_id = t.tourist_id
       WHERE t.user_id = ?
     `;
-    
+
     pool.query(query, [userId], (error, results) => {
       if (error) {
-        console.error('Error fetching tourist details:', error);
-        return res.status(500).json({ error: 'Error fetching data' });
+        console.error("Error fetching tourist details:", error);
+        return res.status(500).json({ error: "Error fetching data" });
       }
 
       if (results.length === 0) {
-        return res.status(404).json({ error: 'Tourist details not found' });
+        return res.status(404).json({ error: "Tourist details not found" });
       }
 
       const user = results[0];
 
-      results.forEach(user => {
-        user.picture = Buffer.from(user.picture).toString('base64');
+      results.forEach((user) => {
+        user.picture = Buffer.from(user.picture).toString("base64");
       });
 
       res.status(200).json(user);
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -182,20 +358,19 @@ router.get("/package-details", (req, res) => {
   });
 });
 
-router.get('/tourist-details', async (req, res) => {
-  
+router.get("/tourist-details", async (req, res) => {
   const authToken = req.headers.authorization;
-  
+
   if (!authToken) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    const token = authToken.split(' ')[1];
+    const token = authToken.split(" ")[1];
     const decodedToken = await verifyAsync(token, secretKey);
 
     if (!decodedToken) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     const userId = decodedToken.userId;
@@ -206,32 +381,32 @@ router.get('/tourist-details', async (req, res) => {
       INNER JOIN tourists t ON td.tourist_id = t.tourist_id
       WHERE t.user_id = ?
     `;
-    
+
     pool.query(query, [userId], (error, results) => {
       if (error) {
-        console.error('Error fetching tourist details:', error);
-        return res.status(500).json({ error: 'Error fetching data' });
+        console.error("Error fetching tourist details:", error);
+        return res.status(500).json({ error: "Error fetching data" });
       }
 
       if (results.length === 0) {
-        return res.status(404).json({ error: 'Tourist details not found' });
+        return res.status(404).json({ error: "Tourist details not found" });
       }
 
       const user = results[0];
 
-      results.forEach(user => {
-        user.picture = Buffer.from(user.picture).toString('base64');
+      results.forEach((user) => {
+        user.picture = Buffer.from(user.picture).toString("base64");
       });
 
       res.status(200).json(user);
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.post('/create-package', async (req, res) => {
+router.post("/create-package", async (req, res) => {
   const authToken = req.headers.authorization;
   const {
     destination,
@@ -242,28 +417,28 @@ router.post('/create-package', async (req, res) => {
   } = req.body;
 
   if (!authToken) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    const token = authToken.split(' ')[1];
+    const token = authToken.split(" ")[1];
     const decodedToken = await verifyAsync(token, secretKey);
 
     if (!decodedToken) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     const userId = decodedToken.userId;
 
-    const touristIdQuery = 'SELECT tourist_id FROM tourists WHERE user_id = ?';
+    const touristIdQuery = "SELECT tourist_id FROM tourists WHERE user_id = ?";
     pool.query(touristIdQuery, [userId], (error, results) => {
       if (error) {
-        console.error('Error fetching tourist ID:', error);
-        return res.status(500).json({ error: 'Error fetching data' });
+        console.error("Error fetching tourist ID:", error);
+        return res.status(500).json({ error: "Error fetching data" });
       }
 
       if (results.length === 0) {
-        return res.status(404).json({ error: 'Tourist ID not found' });
+        return res.status(404).json({ error: "Tourist ID not found" });
       }
 
       const touristId = results[0].tourist_id;
@@ -272,20 +447,32 @@ router.post('/create-package', async (req, res) => {
         INSERT INTO packages (destination, start_date, end_date, preferences, no_of_person, tourist_id)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
-      const values = [destination, dateSelect1, dateSelect2, adultPreference, numberOfIndividuals, touristId];
+      const values = [
+        destination,
+        dateSelect1,
+        dateSelect2,
+        adultPreference,
+        numberOfIndividuals,
+        touristId,
+      ];
 
       pool.query(insertPackageQuery, values, (insertError, insertResults) => {
         if (insertError) {
-          console.error('Error inserting package details:', insertError);
-          return res.status(500).json({ error: 'Error inserting data' });
+          console.error("Error inserting package details:", insertError);
+          return res.status(500).json({ error: "Error inserting data" });
         }
-
-        res.status(200).json({ message: 'Package created successfully' });
+        const packageId = insertResults.insertId; // Retrieve the generated package_id
+        res
+          .status(200)
+          .json({
+            message: "Package created successfully",
+            package_id: packageId,
+          });
       });
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
