@@ -129,7 +129,7 @@ router.post("/add-airline-package-details/:ticketId", (req, res) => {
   console.log(package_id);
 
   const airlineOperationQuery = `
-    SELECT airline_operations_id 
+    SELECT airline_operations_id
     FROM airline_packages 
     WHERE flight_number = ?
   `;
