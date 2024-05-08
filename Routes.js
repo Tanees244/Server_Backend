@@ -17,7 +17,6 @@ router.get("/places", (req, res) => {
       place.images = Buffer.from(place.images).toString("base64");
       place.gallery = place.gallery.split(",").map((image) => image.trim());
     });
-
     res.json(results);
   });
 });
