@@ -420,6 +420,8 @@ router.post("/create-package", async (req, res) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  console.log (dateSelect1);
+
   try {
     const token = authToken.split(" ")[1];
     const decodedToken = await verifyAsync(token, secretKey);
@@ -443,6 +445,8 @@ router.post("/create-package", async (req, res) => {
 
       const touristId = results[0].tourist_id;
 
+
+      
       const insertPackageQuery = `
         INSERT INTO packages (destination, start_date, end_date, preferences, no_of_person, tourist_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -474,6 +478,118 @@ router.post("/create-package", async (req, res) => {
     console.error("Error verifying token:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+router.get("/guide-service", (req, res) => {
+  const query = `
+    SELECT
+      guide_personal_details_id,
+      guide_id,
+      name,
+      age,
+      email,
+      address,
+      contact_number,
+      cnic_number,
+      picture,
+      cnic_front_picture,
+      cnic_back_picture,
+      guide_license_picture
+    FROM guide_personal_details
+  `;
+
+  pool.query(query, (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+
+    results.forEach((guide) => {
+      guide.picture = guide.picture ? Buffer.from(guide.picture).toString("base64") : null;
+      guide.cnic_front_picture = guide.cnic_front_picture ? Buffer.from(guide.cnic_front_picture).toString("base64") : null;
+      guide.cnic_back_picture = guide.cnic_back_picture ? Buffer.from(guide.cnic_back_picture).toString("base64") : null;
+      guide.guide_license_picture = guide.guide_license_picture ? Buffer.from(guide.guide_license_picture).toString("base64") : null;
+    });
+
+    console.log(results);
+    res.json(results);
+  });
+});
+
+router.get("/car-rental-service", (req, res) => {
+  const query = `
+    SELECT
+      car_rental_id,
+      car_name,
+      car_make,
+      car_model,
+      driver_name,
+      contact_number,
+      price,
+      rating,
+      Picture
+    FROM car_rental_service
+  `;
+
+  pool.query(query, (error, results, fields) => {
+    if (error) {
+      console.error("Error executing query:", error);
+      res.status(500).send("Error fetching data");
+      return;
+    }
+
+    results.forEach((car) => {
+      car.Picture = Buffer.from(car.Picture).toString("base64");
+    });
+
+    res.json(results);
+  });
+});
+
+router.post("/update-package-details", (req, res) => {
+  const { package_id, guideId, carRentalId } = req.body;
+  console.log(package_id);
+  const updateQuery = `
+    UPDATE package_details
+    SET guide_id = ?, car_rental_id = ?
+    WHERE package_id = ?
+  `;
+
+  pool.query(updateQuery, [guideId, carRentalId, package_id], (error, results) => {
+    if (error) {
+      console.error("Error updating package details:", error);
+      res.status(500).json({ error: "Error updating package details" });
+      return;
+    }
+
+    res.status(200).json({ message: "Package details updated successfully" });
+  });
+});
+
+router.get('/packages/:package_id', (req, res) => {
+  const { package_id } = req.params;
+  const selectQuery = `
+    SELECT start_date, end_date
+    FROM packages
+    WHERE package_id = ?
+  `;
+
+  pool.query(selectQuery, [package_id], (error, results) => {
+    if (error) {
+      console.error("Error fetching package details:", error);
+      res.status(500).json({ error: "Error fetching package details" });
+      return;
+    }
+
+    if (results.length === 0) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+
+    const { start_date, end_date } = results[0];
+    res.status(200).json({ start_date, end_date });
+  });
 });
 
 module.exports = router;
