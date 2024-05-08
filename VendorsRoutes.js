@@ -1351,7 +1351,6 @@ const galleryString = galleryArray.join(',');
         }); 
     } catch (error) {
         console.error("Error inserting hotel details:", error);
-        // Return error response
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -1499,6 +1498,111 @@ VendorRouter.get('/hotel-details', async (req, res) => {
     } catch (error) {
         console.error('Error verifying token:', error);
         return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+VendorRouter.post("/hotel-booking", async (req, res) => {
+    try {
+        // Extract token from request headers
+        const authToken = req.headers.authorization;
+        if (!authToken) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const token = authToken.split(' ')[1];
+
+        // Decode token to get userId
+        const decodedToken = await verifyAsync(token, secretKey);
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+        const userId = decodedToken.userId;
+
+        // Fetch tourist_id from tourist table using user_id
+        pool.query('SELECT tourist_id FROM tourists WHERE user_id = ?', [userId], (touristIdError, touristIdResults) => {
+            if (touristIdError) {
+                console.error('Error fetching tourist ID:', touristIdError);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (touristIdResults.length === 0) {
+                return res.status(404).json({ error: 'Tourist not found' });
+            }
+
+            const touristId = touristIdResults[0].tourist_id;
+
+            // Extract data from request body
+            const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms } = req.body;
+
+            // Parse date strings into JavaScript Date objects
+            const parsedCheckInDate = new Date(checkInDate);
+            const parsedCheckOutDate = new Date(checkOutDate);
+            
+            // Format dates into MySQL-compatible format ('YYYY-MM-DD')
+            const formattedCheckInDate = `${parsedCheckInDate.getFullYear()}-${(parsedCheckInDate.getMonth() + 1).toString().padStart(2, '0')}-${parsedCheckInDate.getDate().toString().padStart(2, '0')}`;
+            const formattedCheckOutDate = `${parsedCheckOutDate.getFullYear()}-${(parsedCheckOutDate.getMonth() + 1).toString().padStart(2, '0')}-${parsedCheckOutDate.getDate().toString().padStart(2, '0')}`;
+            
+            // Decrement the room count based on the room type
+            let roomFieldToUpdate;
+            switch(name) {
+                case 'Single Bed Room':
+                    roomFieldToUpdate = 'rooms_single_bed';
+                    break;
+                case 'Double Bed Room':
+                    roomFieldToUpdate = 'rooms_double_bed';
+                    break;
+                case 'Standard Room':
+                    roomFieldToUpdate = 'rooms_standard';
+                    break;
+                case 'Executive Room':
+                    roomFieldToUpdate = 'rooms_executive';
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Invalid room type' });
+            }
+
+            // Update the room count in the hotel_details table
+            const updateQuery = `UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} - ? WHERE hotel_details_id = ?`;
+            const updateValues = [rooms, hotel_details_id];
+            pool.query(updateQuery, updateValues, (updateError, updateResults) => {
+                if (updateError) {
+                    console.error('Error updating room count:', updateError);
+                    return res.status(500).json({ error: 'Error updating room count' });
+                }
+                
+                // Insert data into hotel_booking table
+                const insertQuery = `
+                    INSERT INTO hotel_booking (tourist_id, hotel_details_id, room_type_name, price, check_in, check_out, rooms)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `;
+                const insertValues = [
+                    touristId,
+                    hotel_details_id,
+                    name,
+                    price,
+                    formattedCheckInDate,
+                    formattedCheckOutDate,
+                    rooms
+                ];
+                pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+                    if (insertError) {
+                        console.error('Error inserting data:', insertError);
+                        // Roll back the room count update
+                        pool.query(`UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} + ? WHERE hotel_details_id = ?`, [rooms, hotel_details_id], (rollbackError, rollbackResults) => {
+                            if (rollbackError) {
+                                console.error('Error rolling back room count update:', rollbackError);
+                            }
+                            return res.status(500).json({ error: 'Error inserting data' });
+                        });
+                    }
+                    // Return success response
+                    res.status(200).json({ message: "Booking added successfully" });
+                });
+            });
+        });
+    } catch (error) {
+        console.error("Error adding booking:", error);
+        // Return error response
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 
