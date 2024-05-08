@@ -1606,4 +1606,129 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
     }
 });
 
+VendorRouter.get('/hotel-booking-price', async (req, res) => {
+    const authToken = req.headers.authorization;
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Fetch tourist_id from tourists table using user_id
+        const touristIdQuery = 'SELECT tourist_id FROM tourists WHERE user_id = ?';
+        pool.query(touristIdQuery, [userId], async (error, touristIdResults) => {
+            if (error) {
+                console.error('Error fetching tourist ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (touristIdResults.length === 0) {
+                return res.status(404).json({ error: 'Tourist not found' });
+            }
+
+            const touristId = touristIdResults[0].tourist_id;
+            console.log(touristId);
+            
+            // Fetch hotel booking details from hotel_booking table using tourist_id
+            const hotelBookingQuery = 'SELECT * FROM hotel_booking WHERE tourist_id = ?';
+            pool.query(hotelBookingQuery, [touristId], (err, hotelBookingResults) => {
+                if (err) {
+                    console.error('Error fetching hotel booking details:', err);
+                    return res.status(500).json({ error: 'Error fetching data' });
+                }
+
+                if (hotelBookingResults.length === 0) {
+                    return res.status(404).json({ error: 'Hotel booking details not found' });
+                }
+                console.log(hotelBookingResults);
+               
+                res.status(200).json(hotelBookingResults);
+            });
+        });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+VendorRouter.get('/package-price', async (req, res) => {
+    const authToken = req.headers.authorization;
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Step 1: Fetch tourist_id from tourists table using user_id
+        const touristIdQuery = 'SELECT tourist_id FROM tourists WHERE user_id = ?';
+        pool.query(touristIdQuery, [userId], async (error, touristIdResults) => {
+            if (error) {
+                console.error('Error fetching tourist ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (touristIdResults.length === 0) {
+                return res.status(404).json({ error: 'Tourist not found' });
+            }
+
+            const touristId = touristIdResults[0].tourist_id;
+            console.log(touristId);
+
+            // Step 2: Fetch package_id from tourists table using tourist_id
+            const packageIdQuery = 'SELECT package_id FROM hotel_booking WHERE tourist_id = ?';
+            pool.query(packageIdQuery, [touristId], async (error, packageIdResults) => {
+                if (error) {
+                    console.error('Error fetching package ID:', error);
+                    return res.status(500).json({ error: 'Error fetching data' });
+                }
+
+                if (packageIdResults.length === 0) {
+                    return res.status(404).json({ error: 'Package ID not found' });
+                }
+
+                const packageId =54;
+                console.log(packageId);
+
+                // Step 3: Fetch package details from packages table using package_id
+                const packageDetailsQuery = 'SELECT * FROM packages WHERE package_id = ?';
+                pool.query(packageDetailsQuery, [packageId], (err, packageDetailsResults) => {
+                    if (err) {
+                        console.error('Error fetching package details:', err);
+                        return res.status(500).json({ error: 'Error fetching data' });
+                    }
+
+                    if (packageDetailsResults.length === 0) {
+                        return res.status(404).json({ error: 'Package details not found' });
+                    }
+                    console.log(packageDetailsResults);
+
+                    res.status(200).json(packageDetailsResults);
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
 module.exports = VendorRouter;
