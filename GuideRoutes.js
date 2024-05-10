@@ -270,13 +270,14 @@ GuideRouter.post("/guide_submit_documents", async (req, res) => {
         console.error("Error inserting guide personal details:", insertError);
         return res.status(500).json({ error: "Error inserting data" });
       }
+      res.status(200).json({ message: "User registered successfully", guideId });
     });
-    res.status(200).json({ message: "User registered successfully", guideId });
   } catch (error) {
     console.error("Error processing request:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 GuideRouter.post("/guide_experience", async (req, res) => {
   const { experience, motivation, guideId } = req.body;
@@ -328,36 +329,40 @@ GuideRouter.post("/guide_bank_details", async (req, res) => {
 });
 
 GuideRouter.post("/guide_questionnaire", async (req, res) => {
-  const { guideId, answers } = req.body;
+  const { guideId, questions, answers } = req.body;
 
   try {
-    const updateQuery = `
+    // Loop through questions and handle each one
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      const answer = answers[i];
+
+      const updateQuery = `
         UPDATE guide_application 
-        SET guide_q1 = ?, guide_q2 = ?, guide_q3 = ?
+        SET 
+          guide_q${i + 1} = ?,
+          guide_a${i + 1} = ?
         WHERE guide_id = ?`;
 
-    const updateValues = [
-      answers[0] || null,
-      answers[1] || null,
-      answers[2] || null,
-      guideId,
-    ];
+      const updateValues = [question.text || null, answer || null, guideId];
 
-    pool.query(updateQuery, updateValues, (updateError) => {
-      if (updateError) {
-        console.error("Error updating guide questionnaire:", updateError);
-        return res.status(500).json({ error: "Error updating data" });
-      }
+      pool.query(updateQuery, updateValues, (updateError, results) => {
+        if (updateError) {
+          console.error("Error updating guide questionnaire:", updateError);
+          return res.status(500).json({ error: "Error updating data" });
+        }
 
-      res
-        .status(200)
-        .json({ message: "Guide questionnaire updated successfully" });
-    });
+        console.log(`Question ${i + 1} updated successfully`);
+      });
+    }
+
+    res.status(200).json({ message: "Guide questionnaire updated successfully" });
   } catch (error) {
     console.error("Error processing request:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 GuideRouter.get("/guide_applications", async (req, res) => {
   try {

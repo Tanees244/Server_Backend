@@ -1594,8 +1594,9 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
                             return res.status(500).json({ error: 'Error inserting data' });
                         });
                     }
-                    // Return success response
-                    res.status(200).json({ message: "Booking added successfully" });
+                    const hotelBookingId = insertResults.insertId;
+                    res.status(200).json({ message: "Booking added successfully", hotel_booking_id: hotelBookingId });
+
                 });
             });
         });
@@ -1707,7 +1708,6 @@ VendorRouter.get('/package-price', async (req, res) => {
                 const packageId =54;
                 console.log(packageId);
 
-                // Step 3: Fetch package details from packages table using package_id
                 const packageDetailsQuery = 'SELECT * FROM packages WHERE package_id = ?';
                 pool.query(packageDetailsQuery, [packageId], (err, packageDetailsResults) => {
                     if (err) {
