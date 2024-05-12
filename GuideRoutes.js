@@ -6,6 +6,11 @@ const jwt = require("jsonwebtoken");
 const { promisify } = require('util');
 const verifyAsync = promisify(jwt.verify);
 const secretKey = 'safarnama';
+const multer = require('multer');
+
+// Configure multer for handling file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 GuideRouter.get('/guide-details', async (req, res) => {
   const authToken = req.headers.authorization;
@@ -255,15 +260,24 @@ GuideRouter.post("/guide_personal_details", async (req, res) => {
   }
 });
 
-GuideRouter.post("/guide_submit_documents", async (req, res) => {
-  const { image1, image2, image3, image4, guideId } = req.body;
+GuideRouter.post("/guide_submit_documents", upload.fields([{ name: 'image1' }, { name: 'image2' }, { name: 'image3' }, { name: 'image4' }]), async (req, res) => {
+  const { guideId } = req.body;
+  console.log(guideId);
 
   try {
-    const insertQuery = `UPDATE guide_personal_details 
+    const insertQuery = `
+      UPDATE guide_personal_details
       SET picture = ?, cnic_front_picture = ?, cnic_back_picture = ?, guide_license_picture = ?
       WHERE guide_id = ?
     `;
-    const insertValues = [image1, image2, image3, image4, guideId];
+    const insertValues = [
+      req.files['image1'][0].buffer,
+      req.files['image2'][0].buffer,
+      req.files['image3'][0].buffer,
+      req.files['image4'][0].buffer,
+      guideId,
+    ];
+    console.log(insertValues);
 
     pool.query(insertQuery, insertValues, (insertError) => {
       if (insertError) {
@@ -271,12 +285,17 @@ GuideRouter.post("/guide_submit_documents", async (req, res) => {
         return res.status(500).json({ error: "Error inserting data" });
       }
     });
+    
     res.status(200).json({ message: "User registered successfully", guideId });
+
   } catch (error) {
     console.error("Error processing request:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+
 
 GuideRouter.post("/guide_experience", async (req, res) => {
   const { experience, motivation, guideId } = req.body;
