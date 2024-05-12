@@ -591,4 +591,56 @@ router.get('/packages/:package_id', (req, res) => {
   });
 });
 
+
+router.get('/hotels', (req, res) => {
+  const { hotel_booking_id, package_id, hotel_details_id } = req.params;
+
+  console.log(package_id);
+  console.log(hotel_booking_id);
+  console.log(hotel_details_id);
+
+  // Fetch room information based on package_id and hotel_booking_id
+  const roomQuery = `
+    SELECT room_type_name, rooms
+    FROM hotel_booking
+    WHERE package_id = ? AND hotel_booking_id = ?
+  `;
+  pool.query(roomQuery, [package_id, hotel_booking_id], (error1, roomResults) => {
+    if (error1) {
+      console.error('Error fetching room information:', error1);
+      res.status(500).json({ error: 'Error fetching room information' });
+      return;
+    }
+
+    console.log(roomResults);
+
+    // Fetch hotel name based on hotel_details_id
+    const hotelQuery = `
+      SELECT name
+      FROM hotel_details
+      WHERE hotel_details_id = ?
+    `;
+    pool.query(hotelQuery, [hotel_details_id], (error2, hotelResults) => {
+      if (error2) {
+        console.error('Error fetching hotel name:', error2);
+        res.status(500).json({ error: 'Error fetching hotel name' });
+        return;
+      }
+
+      console.log(hotelResults);
+
+      // Prepare response object
+      const response = {
+        room_type_name: roomResults[0]?.room_type_name || null,
+        rooms: roomResults[0]?.rooms || null,
+        hotel_name: hotelResults[0]?.name || null,
+      };
+
+      res.status(200).json(response);
+    });
+  });
+});
+
+
+
 module.exports = router;

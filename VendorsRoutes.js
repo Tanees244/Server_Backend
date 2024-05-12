@@ -1577,7 +1577,7 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
             const touristId = touristIdResults[0].tourist_id;
 
             // Extract data from request body
-            const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms } = req.body;
+            const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms, package_id } = req.body;
 
             // Parse date strings into JavaScript Date objects
             const parsedCheckInDate = new Date(checkInDate);
@@ -1617,8 +1617,8 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
                 
                 // Insert data into hotel_booking table
                 const insertQuery = `
-                    INSERT INTO hotel_booking (tourist_id, hotel_details_id, room_type_name, price, check_in, check_out, rooms)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO hotel_booking (tourist_id, hotel_details_id, room_type_name, price, check_in, check_out, rooms, package_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 const insertValues = [
                     touristId,
@@ -1627,7 +1627,8 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
                     price,
                     formattedCheckInDate,
                     formattedCheckOutDate,
-                    rooms
+                    rooms,
+                    package_id
                 ];
                 pool.query(insertQuery, insertValues, (insertError, insertResults) => {
                     if (insertError) {
@@ -1640,8 +1641,9 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
                             return res.status(500).json({ error: 'Error inserting data' });
                         });
                     }
-                    // Return success response
-                    res.status(200).json({ message: "Booking added successfully" });
+                    const hotelBookingId = insertResults.insertId;
+                    res.status(200).json({ message: "Booking added successfully", hotel_booking_id: hotelBookingId });
+
                 });
             });
         });
