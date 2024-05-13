@@ -7,7 +7,7 @@ const verifyAsync = promisify(jwt.verify);
 const secretKey = "safarnama";
 
 router.get("/places", (req, res) => {
-  pool.query("SELECT * from places", (error, results, fields) => {
+  pool.query("SELECT * from places order by RAND()", (error, results, fields) => {
     if (error) {
       console.error("Error executing query:", error);
       res.status(500).send("Error fetching data");
@@ -22,7 +22,7 @@ router.get("/places", (req, res) => {
 });
 
 router.get("/packages", (req, res) => {
-  pool.query("SELECT * from packages", (error, results, feilds) => {
+  pool.query("SELECT * from packages ", (error, results, feilds) => {
     if (error) {
       console.error("Error executing query:", error);
       res.status(500).send("Error fetching data");
@@ -31,6 +31,40 @@ router.get("/packages", (req, res) => {
     res.json(results);
   });
 });
+
+router.get('/top-rated-places', async (req, res) => {
+  try {
+    // Using pool.query for raw SQL query execution
+    pool.query("SELECT * FROM places ORDER BY rating DESC LIMIT 10", (error, results, fields) => {
+      if (error) {
+        console.error("Error executing query:", error);
+        res.status(500).send("Error fetching data");
+        return;
+      }
+
+      results.forEach((place) => {
+        place.images = Buffer.from(place.images).toString("base64");
+        place.gallery = place.gallery.split(",").map((image) => image.trim());
+      });
+
+      // Process the results
+      // const topPlaces = results.map(place => {
+      //   // Assuming 'images' and 'gallery' are fields in the 'places' table
+      //   place.images = Buffer.from(place.images, 'base64').toString();
+      //   place.gallery = place.gallery.split(",").map(image => image.trim());
+      //   return place;
+      // });
+
+      // Send the processed top places as response
+      res.json(results);
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 router.get("/railway-packages", (req, res) => {
   pool.query("SELECT * from railway_packages", (error, results, feilds) => {

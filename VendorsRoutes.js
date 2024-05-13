@@ -1365,34 +1365,46 @@ VendorRouter.post('/hotel_packages', upload.single('image'), async (req, res) =>
     try {
         const { hotel_details_id } = req.params;
 
-        // Step 1: Delete related records from hotel_booking using hotel_details_id
-        const deleteHotelBookingQuery = `
-            DELETE FROM hotel_booking
+        // Step 1: Delete related records from package_hotel_details using hotel_details_id
+        const deletePackageHotelDetailsQuery = `
+            DELETE FROM package_hotel_details
             WHERE hotel_details_id = ?
         `;
-        pool.query(deleteHotelBookingQuery, [hotel_details_id], (error, deleteHotelBookingResults) => {
+        pool.query(deletePackageHotelDetailsQuery, [hotel_details_id], (error, deletePackageHotelDetailsResults) => {
             if (error) {
-                console.error('Error deleting hotel bookings:', error);
-                return res.status(500).json({ error: 'Error deleting hotel bookings' });
+                console.error('Error deleting package hotel details:', error);
+                return res.status(500).json({ error: 'Error deleting package hotel details' });
             }
 
-            // Step 2: Delete hotel details from hotel_details table
-            const deleteHotelDetailsQuery = `
-                DELETE FROM hotel_details
+            // Step 2: Delete related records from hotel_booking using hotel_details_id
+            const deleteHotelBookingQuery = `
+                DELETE FROM hotel_booking
                 WHERE hotel_details_id = ?
             `;
-            pool.query(deleteHotelDetailsQuery, [hotel_details_id], (error, deleteHotelDetailsResults) => {
-                console.log(hotel_details_id);
+            pool.query(deleteHotelBookingQuery, [hotel_details_id], (error, deleteHotelBookingResults) => {
                 if (error) {
-                    console.error('Error deleting hotel details:', error);
-                    return res.status(500).json({ error: 'Error deleting hotel details' });
+                    console.error('Error deleting hotel bookings:', error);
+                    return res.status(500).json({ error: 'Error deleting hotel bookings' });
                 }
 
-                if (deleteHotelDetailsResults.affectedRows === 0) {
-                    return res.status(404).json({ error: 'Hotel details not found' });
-                }
+                // Step 3: Delete hotel details from hotel_details table
+                const deleteHotelDetailsQuery = `
+                    DELETE FROM hotel_details
+                    WHERE hotel_details_id = ?
+                `;
+                pool.query(deleteHotelDetailsQuery, [hotel_details_id], (error, deleteHotelDetailsResults) => {
+                    console.log(hotel_details_id);
+                    if (error) {
+                        console.error('Error deleting hotel details:', error);
+                        return res.status(500).json({ error: 'Error deleting hotel details' });
+                    }
 
-                res.status(200).json({ message: 'Hotel and related details deleted successfully' });
+                    if (deleteHotelDetailsResults.affectedRows === 0) {
+                        return res.status(404).json({ error: 'Hotel details not found' });
+                    }
+
+                    res.status(200).json({ message: 'Hotel and related details deleted successfully' });
+                });
             });
         });
     } catch (error) {
@@ -1400,6 +1412,7 @@ VendorRouter.post('/hotel_packages', upload.single('image'), async (req, res) =>
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 
 
