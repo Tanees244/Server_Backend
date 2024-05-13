@@ -1577,7 +1577,7 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
             const touristId = touristIdResults[0].tourist_id;
 
             // Extract data from request body
-            const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms, package_id } = req.body;
+            const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms, package_id, day } = req.body;
 
             // Parse date strings into JavaScript Date objects
             const parsedCheckInDate = new Date(checkInDate);
@@ -1641,9 +1641,7 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
                             return res.status(500).json({ error: 'Error inserting data' });
                         });
                     }
-                    const hotelBookingId = insertResults.insertId;
                     res.status(200).json({ message: "Booking added successfully", hotel_booking_id: hotelBookingId });
-
                 });
             });
         });
@@ -1653,6 +1651,7 @@ VendorRouter.post("/hotel-booking", async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 VendorRouter.get('/hotel-booking-price', async (req, res) => {
     const authToken = req.headers.authorization;
