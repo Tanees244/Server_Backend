@@ -48,12 +48,12 @@ router.get('/top-rated-places', async (req, res) => {
       });
 
       // Process the results
-      // const topPlaces = results.map(place => {
-      //   // Assuming 'images' and 'gallery' are fields in the 'places' table
-      //   place.images = Buffer.from(place.images, 'base64').toString();
-      //   place.gallery = place.gallery.split(",").map(image => image.trim());
-      //   return place;
-      // });
+      const topPlaces = results.map(place => {
+        // Assuming 'images' and 'gallery' are fields in the 'places' table
+        place.images = Buffer.from(place.images, 'base64').toString();
+        place.gallery = place.gallery.split(",").map(image => image.trim());
+        return place;
+      });
 
       // Send the processed top places as response
       res.json(results);
