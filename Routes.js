@@ -158,9 +158,7 @@ router.get("/bus-packages/:ticketId", (req, res) => {
 
 router.post("/add-airline-package-details/:ticketId", (req, res) => {
   const { ticketId } = req.params;
-  const { package_id } = req.body;
-  const { ticket_price } = req.body;
-  
+  const { package_id, ticket_price } = req.body;
 
   console.log(ticketId);
   console.log(package_id);
@@ -187,6 +185,7 @@ router.post("/add-airline-package-details/:ticketId", (req, res) => {
     const airlineOperationsId = results[0].airline_operations_id;
     console.log(airlineOperationsId);
 
+    // Insert into package_details table
     const insertQuery = `
       INSERT INTO package_details (package_id, airline_operations_id) 
       VALUES (?, ?)
@@ -199,17 +198,34 @@ router.post("/add-airline-package-details/:ticketId", (req, res) => {
         return res.status(500).send("Error inserting data");
       }
 
-      res.status(200).send("Package details inserted successfully");
+      // Update price in packages table
+      const updateQuery = `
+        UPDATE packages
+        SET price = price + ?
+        WHERE package_id = ?
+      `;
+      const updateValues = [ticket_price, package_id];
+
+      pool.query(updateQuery, updateValues, (updateError, _) => {
+        if (updateError) {
+          console.error("Error updating package price:", updateError);
+          return res.status(500).send("Error updating package price");
+        }
+
+        res.status(200).send("Package details inserted and price updated successfully");
+      });
     });
   });
 });
 
+
 router.post("/add-bus-package-details/:ticketId", (req, res) => {
   const { ticketId } = req.params;
-  const { package_id } = req.body;
+  const { package_id, ticket_price } = req.body;
 
   console.log(ticketId);
   console.log(package_id);
+  console.log(ticket_price);
 
   const busOperationQuery = `
     SELECT bus_package_id 
@@ -232,6 +248,7 @@ router.post("/add-bus-package-details/:ticketId", (req, res) => {
     const busOperationsId = results[0].bus_package_id;
     console.log(busOperationsId);
 
+    // Insert into package_details table
     const insertQuery = `
       INSERT INTO package_details (package_id, bus_package_id) 
       VALUES (?, ?)
@@ -244,17 +261,34 @@ router.post("/add-bus-package-details/:ticketId", (req, res) => {
         return res.status(500).send("Error inserting data");
       }
 
-      res.status(200).send("Package details inserted successfully");
+      // Update price in packages table
+      const updateQuery = `
+        UPDATE packages
+        SET price = price + ?
+        WHERE package_id = ?
+      `;
+      const updateValues = [ticket_price, package_id];
+
+      pool.query(updateQuery, updateValues, (updateError, _) => {
+        if (updateError) {
+          console.error("Error updating package price:", updateError);
+          return res.status(500).send("Error updating package price");
+        }
+
+        res.status(200).send("Package details inserted and price updated successfully");
+      });
     });
   });
 });
 
+
 router.post("/add-railway-package-details/:ticketId", (req, res) => {
   const { ticketId } = req.params;
-  const { package_id } = req.body;
+  const { package_id, ticket_price } = req.body;
 
   console.log(ticketId);
   console.log(package_id);
+  console.log(ticket_price);
 
   const railwayOperationQuery = `
     SELECT railway_package_id 
@@ -277,6 +311,7 @@ router.post("/add-railway-package-details/:ticketId", (req, res) => {
     const railwayOperationsId = results[0].railway_package_id;
     console.log(railwayOperationsId);
 
+    // Insert into package_details table
     const insertQuery = `
       INSERT INTO package_details (package_id, railway_package_id) 
       VALUES (?, ?)
@@ -289,10 +324,26 @@ router.post("/add-railway-package-details/:ticketId", (req, res) => {
         return res.status(500).send("Error inserting data");
       }
 
-      res.status(200).send("Package details inserted successfully");
+      // Update price in packages table
+      const updateQuery = `
+        UPDATE packages
+        SET price = price + ?
+        WHERE package_id = ?
+      `;
+      const updateValues = [ticket_price, package_id];
+
+      pool.query(updateQuery, updateValues, (updateError, _) => {
+        if (updateError) {
+          console.error("Error updating package price:", updateError);
+          return res.status(500).send("Error updating package price");
+        }
+
+        res.status(200).send("Package details inserted and price updated successfully");
+      });
     });
   });
 });
+
 
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
@@ -667,8 +718,6 @@ router.get("/guide-service", (req, res) => {
         ? Buffer.from(guide.guide_license_picture).toString("base64")
         : null;
     });
-
-    console.log(results);
     res.json(results);
   });
 });
@@ -978,11 +1027,36 @@ router.post("/hotel-booking", async (req, res) => {
                   }
 
                   const packageHotelDetailsId = phdResults.insertId;
-                  res.status(200).json({
-                    message: "Booking added successfully",
-                    hotel_booking_id: hotelBookingId,
-                    package_hotel_details_id: packageHotelDetailsId,
-                  });
+
+                  // Update package price in packages table
+                  const updatePackagePriceQuery = `
+                      UPDATE packages
+                      SET price = price + ?
+                      WHERE package_id = ?
+                  `;
+                  const updatePackagePriceValues = [price, package_id];
+                  pool.query(
+                    updatePackagePriceQuery,
+                    updatePackagePriceValues,
+                    (updatePriceError, updatePriceResults) => {
+                      if (updatePriceError) {
+                        console.error(
+                          "Error updating package price:",
+                          updatePriceError
+                        );
+                        // Return error response
+                        return res
+                          .status(500)
+                          .json({ error: "Error updating package price" });
+                      }
+                      
+                      res.status(200).json({
+                        message: "Booking added successfully",
+                        hotel_booking_id: hotelBookingId,
+                        package_hotel_details_id: packageHotelDetailsId,
+                      });
+                    }
+                  );
                 }
               );
             }
@@ -996,6 +1070,7 @@ router.post("/hotel-booking", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 router.get("/Itinerary", async (req, res) => {
   const authToken = req.headers.authorization;
@@ -1154,7 +1229,7 @@ router.get("/Itinerary", async (req, res) => {
                                       hotelDetails: hotelDetailsArray,
                                       package: packageResults[0],
                                     };
-                                    console.log(response);
+                                    
                                     res.status(200).json(response);
                                   })
                                   .catch((error) => {
