@@ -743,6 +743,7 @@ router.get("/guide-service", (req, res) => {
         ? Buffer.from(guide.guide_license_picture).toString("base64")
         : null;
     });
+
     res.json(results);
   });
 });
@@ -779,7 +780,12 @@ router.get("/car-rental-service", (req, res) => {
 
 router.post("/update-package-details", (req, res) => {
   const { package_id, guideId, carRentalId } = req.body;
-  console.log(package_id);
+
+  // Validate input
+  if (!package_id || !guideId || !carRentalId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
   const updateQuery = `
     UPDATE package_details
     SET guide_id = ?, car_rental_id = ?
@@ -792,8 +798,7 @@ router.post("/update-package-details", (req, res) => {
     (error, results) => {
       if (error) {
         console.error("Error updating package details:", error);
-        res.status(500).json({ error: "Error updating package details" });
-        return;
+        return res.status(500).json({ error: "Error updating package details" });
       }
 
       res.status(200).json({ message: "Package details updated successfully" });
@@ -1145,7 +1150,7 @@ router.get("/Itinerary", async (req, res) => {
                     .status(404)
                     .json({ error: "Package details not found" });
                 }
-
+                // console.log(ho);
                 pool.query(
                   "SELECT * FROM package_details WHERE package_id = ?",
                   [packageId],
