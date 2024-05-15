@@ -5,6 +5,11 @@ const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
 const verifyAsync = promisify(jwt.verify);
 const secretKey = "safarnama";
+const multer = require('multer');
+
+// Configure multer for handling file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 router.get("/places", (req, res) => {
   pool.query(
@@ -468,7 +473,6 @@ router.get("/tourist-unrated-packages", async (req, res) => {
             }
             console.log(results);
             res.json(results);
-            
           }
         );
       }
@@ -526,7 +530,6 @@ router.get("/tourist-rated-packages", async (req, res) => {
             }
             console.log(results);
             res.json(results);
-            
           }
         );
       }
@@ -535,6 +538,28 @@ router.get("/tourist-rated-packages", async (req, res) => {
     console.error("Error verifying token:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+router.post("/update-rating", (req, res) => {
+  const { package_id, rating } = req.body;
+
+  if (rating < 1 || rating > 5) {
+    return res
+      .status(400)
+      .json({ error: "Invalid rating. Rating must be between 1 and 5." });
+  }
+
+  pool.query(
+    "UPDATE packages SET rating = ? WHERE package_id = ?",
+    [rating, package_id],
+    (error, results, fields) => {
+      if (error) {
+        console.error("Error updating rating:", error);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      res.status(200).json({ message: "Rating updated successfully" });
+    }
+  );
 });
 
 router.get("/package-details", (req, res) => {
@@ -718,6 +743,7 @@ router.get("/guide-service", (req, res) => {
         ? Buffer.from(guide.guide_license_picture).toString("base64")
         : null;
     });
+
     res.json(results);
   });
 });
@@ -753,8 +779,13 @@ router.get("/car-rental-service", (req, res) => {
 });
 
 router.post("/update-package-details", (req, res) => {
-  const { packageId, guideId, carRentalId } = req.body;
-  console.log("here am i" ,carRentalId);
+  const { package_id, guideId, carRentalId } = req.body;
+
+  // Validate input
+  if (!package_id || !guideId || !carRentalId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
   const updateQuery = `
     UPDATE package_details
     SET guide_id = ?, car_rental_id = ?
@@ -767,8 +798,7 @@ router.post("/update-package-details", (req, res) => {
     (error, results) => {
       if (error) {
         console.error("Error updating package details:", error);
-        res.status(500).json({ error: "Error updating package details" });
-        return;
+        return res.status(500).json({ error: "Error updating package details" });
       }
 
       res.status(200).json({ message: "Package details updated successfully" });
@@ -1120,7 +1150,7 @@ router.get("/Itinerary", async (req, res) => {
                     .status(404)
                     .json({ error: "Package details not found" });
                 }
-
+                // console.log(ho);
                 pool.query(
                   "SELECT * FROM package_details WHERE package_id = ?",
                   [packageId],
@@ -1318,6 +1348,125 @@ router.get('/booked-packages', async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+router.get('/booked-packages', async (req, res) => {
+    const authToken = req.headers.authorization;
+    const packageId = req.query.packageId; // Assuming the packageId is passed as a query parameter
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Fetch the tourist ID using the user ID
+        const touristIdQuery = `
+            SELECT tourist_id
+            FROM tourists
+            WHERE user_id = ?
+        `;
+
+        pool.query(touristIdQuery, [userId], async (error, results) => {
+            if (error) {
+                console.error('Error fetching tourist ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ error: 'Tourist ID not found' });
+            }
+
+            const touristId = results[0].tourist_id;
+
+            // Insert package ID and tourist ID into booked packages table
+            const insertQuery = `
+                INSERT INTO booked_packages (package_id, tourist_id)
+                VALUES (?, ?)
+            `;
+
+            pool.query(insertQuery, [packageId, touristId], (error, results) => {
+                if (error) {
+                    console.error('Error inserting into booked_packages:', error);
+                    return res.status(500).json({ error: 'Error inserting data' });
+                }
+
+                res.status(200).json({ message: 'Package booked successfully' });
+            });
+        });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post("/tourist_personal_details", upload.single('image'), async (req, res) => {
+
+  const { fullName, age, email, address, phoneNumber, cnicNumber, userId } = req.body;
+
+  try {
+
+console.log(userId);
+    
+    pool.query(
+      "SELECT tourist_id FROM tourists WHERE user_id = ?",
+      [userId],
+      (guideIdError, guideIdResults) => {
+        if (guideIdError) {
+          console.error("Error fetching guideId:", guideIdError);
+          return res.status(500).json({ error: "Error fetching guideId" });
+        }
+
+        if (guideIdResults.length === 0) {
+          return res.status(404).json({ error: "Guide not found" });
+        }
+
+        const touristId = guideIdResults[0].tourist_id;
+
+        const image = req.file.buffer;
+        console.log(image);
+        const insertQuery = `
+          INSERT INTO tourist_details (tourist_id, name, age, email, contact_no, address, cinic_number, picture)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const insertValues = [
+          touristId,
+          fullName,
+          age,
+          email,
+          phoneNumber,
+          address,
+          cnicNumber,
+          image,
+        ];
+
+        pool.query(insertQuery, insertValues, (insertError, insertResults) => {
+          if (insertError) {
+            console.error(
+              "Error inserting guide personal details:",
+              insertError
+            );
+            return res.status(500).json({ error: "Error inserting data" });
+          }
+        });
+        res
+          .status(200)
+          .json({ message: "User registered successfully" });
+      }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 module.exports = router;
 

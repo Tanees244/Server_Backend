@@ -87,9 +87,11 @@ AuthRouter.post("/register", (req, res) => {
                         .status(500)
                         .json({ error: "Error inserting tourist data" });
                     }
-                    res
-                      .status(201)
-                      .json({ message: "User registered successfully" });
+                    console.log(userId);
+                    res.status(201).json({
+                      message: "User registered successfully",
+                      userId
+                    });
                   }
                 );
                 break;
