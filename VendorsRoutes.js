@@ -1765,33 +1765,39 @@ VendorRouter.get('/package-price', async (req, res) => {
 
                 let totalPrice = 0;
 
-                // Iterate over each package_id
-                packageIdResults.forEach(packageIdResult => {
+                // Use Promise.all to handle multiple asynchronous operations
+                Promise.all(packageIdResults.map(packageIdResult => {
                     const packageId = packageIdResult.package_id;
                     console.log(packageId);
+
                     // Step 3: Fetch price from packages table using package_id
                     const packageDetailsQuery = 'SELECT price FROM packages WHERE package_id = ?';
-                    pool.query(packageDetailsQuery, [packageId], (error, packageDetailsResults) => {
-                        if (error) {
-                            console.error('Error fetching package details:', error);
-                            return res.status(500).json({ error: 'Error fetching data' });
-                        }
+                    return new Promise((resolve, reject) => {
+                        pool.query(packageDetailsQuery, [packageId], (error, packageDetailsResults) => {
+                            if (error) {
+                                console.error('Error fetching package details:', error);
+                                reject(error);
+                            }
 
-                        if (!packageDetailsResults || packageDetailsResults.length === 0) {
-                            // console.error('Package details not found for package ID:', packageId);
-                            return; // Skip this package ID
-                        }
-
-                        const price = packageDetailsResults[0].price;
-                        totalPrice += price;
-                        console.log(totalPrice);
-
-                        // If this is the last package ID, send the total price in the response
-                       
-                            res.status(200).json({ p: totalPrice });
-                            console.log(totalPrice);
-                        
+                            if (!packageDetailsResults || packageDetailsResults.length === 0) {
+                                // Skip this package ID if package details are not found
+                                console.error('Package details not found for package ID:', packageId);
+                                resolve(0);
+                            } else {
+                                const price = packageDetailsResults[0].price;
+                                totalPrice += price;
+                                console.log(totalPrice);
+                                resolve(price);
+                            }
+                        });
                     });
+                })).then(prices => {
+                    // Calculate total price and send response
+                    const totalPrice = prices.reduce((acc, curr) => acc + curr, 0);
+                    res.status(200).json({ totalPrice });
+                }).catch(error => {
+                    console.error('Error in Promise.all:', error);
+                    return res.status(500).json({ error: 'Error fetching data' });
                 });
             });
         });
@@ -1800,6 +1806,8 @@ VendorRouter.get('/package-price', async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
 
 
 
