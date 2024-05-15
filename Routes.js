@@ -753,8 +753,8 @@ router.get("/car-rental-service", (req, res) => {
 });
 
 router.post("/update-package-details", (req, res) => {
-  const { package_id, guideId, carRentalId } = req.body;
-  console.log(package_id);
+  const { packageId, guideId, carRentalId } = req.body;
+  console.log("here am i" ,carRentalId);
   const updateQuery = `
     UPDATE package_details
     SET guide_id = ?, car_rental_id = ?
@@ -763,7 +763,7 @@ router.post("/update-package-details", (req, res) => {
 
   pool.query(
     updateQuery,
-    [guideId, carRentalId, package_id],
+    [guideId, carRentalId, packageId],
     (error, results) => {
       if (error) {
         console.error("Error updating package details:", error);
@@ -1261,4 +1261,63 @@ router.get("/Itinerary", async (req, res) => {
   }
 });
 
+router.get('/booked-packages', async (req, res) => {
+    const authToken = req.headers.authorization;
+    const packageId = req.query.packageId; // Assuming the packageId is passed as a query parameter
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const token = authToken.split(' ')[1];
+        const decodedToken = await verifyAsync(token, secretKey);
+
+        if (!decodedToken) {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+
+        const userId = decodedToken.userId;
+
+        // Fetch the tourist ID using the user ID
+        const touristIdQuery = `
+            SELECT tourist_id
+            FROM tourists
+            WHERE user_id = ?
+        `;
+
+        pool.query(touristIdQuery, [userId], async (error, results) => {
+            if (error) {
+                console.error('Error fetching tourist ID:', error);
+                return res.status(500).json({ error: 'Error fetching data' });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ error: 'Tourist ID not found' });
+            }
+
+            const touristId = results[0].tourist_id;
+
+            // Insert package ID and tourist ID into booked packages table
+            const insertQuery = `
+                INSERT INTO booked_packages (package_id, tourist_id)
+                VALUES (?, ?)
+            `;
+
+            pool.query(insertQuery, [packageId, touristId], (error, results) => {
+                if (error) {
+                    console.error('Error inserting into booked_packages:', error);
+                    return res.status(500).json({ error: 'Error inserting data' });
+                }
+
+                res.status(200).json({ message: 'Package booked successfully' });
+            });
+        });
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;
+

@@ -1751,7 +1751,7 @@ VendorRouter.get('/package-price', async (req, res) => {
             }
 
             const touristId = touristIdResults[0].tourist_id;
-            console.log(touristId);
+            // console.log(touristId);
 
             // Step 2: Fetch package_ids from hotel_booking table using tourist_id
             const packageIdQuery = 'SELECT package_id FROM hotel_booking WHERE tourist_id = ?';
@@ -1770,7 +1770,7 @@ VendorRouter.get('/package-price', async (req, res) => {
                 // Use Promise.all to handle multiple asynchronous operations
                 Promise.all(packageIdResults.map(packageIdResult => {
                     const packageId = packageIdResult.package_id;
-                    console.log(packageId);
+                    // console.log(packageId);
 
                     // Step 3: Fetch price from packages table using package_id
                     const packageDetailsQuery = 'SELECT price FROM packages WHERE package_id = ?';
@@ -1788,7 +1788,7 @@ VendorRouter.get('/package-price', async (req, res) => {
                             } else {
                                 const price = packageDetailsResults[0].price;
                                 totalPrice += price;
-                                console.log(totalPrice);
+                                // console.log(totalPrice);
                                 resolve(price);
                             }
                         });
