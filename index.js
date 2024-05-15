@@ -13,6 +13,8 @@ const AdminRoutes = require('./AdminRoutes');
 const GuideRoutes = require('./GuideRoutes');
 const VendorsRoutes = require('./VendorsRoutes'); 
 const PaymentRoutes = require('./PaymentRoutes'); 
+const RecommendRoutes = require('./RecommendRoutes'); 
+
 
 // Use routes
 app.use('/api/authRoutes', AuthRoutes);
@@ -21,6 +23,8 @@ app.use('/api/adminRoutes', AdminRoutes);
 app.use('/api/guideRoutes', GuideRoutes);
 app.use('/api/vendorsRoutes', VendorsRoutes);
 app.use('/api/PaymentRoutes', PaymentRoutes);
+app.use('/api/RecommendRoutes', RecommendRoutes);
+
 
 
 app.listen(8000, () => {

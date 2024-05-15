@@ -157,9 +157,12 @@ router.get("/bus-packages/:ticketId", (req, res) => {
 router.post("/add-airline-package-details/:ticketId", (req, res) => {
   const { ticketId } = req.params;
   const { package_id } = req.body;
+  const { ticket_price } = req.body;
+  
 
   console.log(ticketId);
   console.log(package_id);
+  console.log(ticket_price);
 
   const airlineOperationQuery = `
     SELECT airline_operations_id
