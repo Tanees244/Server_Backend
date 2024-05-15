@@ -71,7 +71,7 @@ GuideRouter.get('/guide-details', async (req, res) => {
   }
 });
 
-GuideRouter.put('/update-user-rating', async (req, res) => {
+GuideRouter.put('/update-user', async (req, res) => {
   const authToken = req.headers.authorization;
   
   if (!authToken) {
