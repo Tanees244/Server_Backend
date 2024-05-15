@@ -7,18 +7,21 @@ const verifyAsync = promisify(jwt.verify);
 const secretKey = "safarnama";
 
 router.get("/places", (req, res) => {
-  pool.query("SELECT * from places order by RAND()", (error, results, fields) => {
-    if (error) {
-      console.error("Error executing query:", error);
-      res.status(500).send("Error fetching data");
-      return;
+  pool.query(
+    "SELECT * from places order by RAND()",
+    (error, results, fields) => {
+      if (error) {
+        console.error("Error executing query:", error);
+        res.status(500).send("Error fetching data");
+        return;
+      }
+      results.forEach((place) => {
+        place.images = Buffer.from(place.images).toString("base64");
+        place.gallery = place.gallery.split(",").map((image) => image.trim());
+      });
+      res.json(results);
     }
-    results.forEach((place) => {
-      place.images = Buffer.from(place.images).toString("base64");
-      place.gallery = place.gallery.split(",").map((image) => image.trim());
-    });
-    res.json(results);
-  });
+  );
 });
 
 router.get("/packages", (req, res) => {
@@ -32,39 +35,39 @@ router.get("/packages", (req, res) => {
   });
 });
 
-router.get('/top-rated-places', async (req, res) => {
+router.get("/top-rated-places", async (req, res) => {
   try {
-    // Using pool.query for raw SQL query execution
-    pool.query("SELECT * FROM places ORDER BY rating DESC LIMIT 10", (error, results, fields) => {
-      if (error) {
-        console.error("Error executing query:", error);
-        res.status(500).send("Error fetching data");
-        return;
+    pool.query(
+      "SELECT * FROM places ORDER BY rating DESC LIMIT 10",
+      (error, results, fields) => {
+        if (error) {
+          console.error("Error executing query:", error);
+          res.status(500).send("Error fetching data");
+          return;
+        }
+
+        results.forEach((place) => {
+          place.images = Buffer.from(place.images).toString("base64");
+          place.gallery = place.gallery.split(",").map((image) => image.trim());
+        });
+
+        // Process the results
+        // const topPlaces = results.map((place) => {
+        //   // Assuming 'images' and 'gallery' are fields in the 'places' table
+        //   place.images = Buffer.from(place.images, "base64").toString();
+        //   place.gallery = place.gallery.split(",").map((image) => image.trim());
+        //   return place;
+        // });
+
+        // Send the processed top places as response
+        res.json(results);
       }
-
-      results.forEach((place) => {
-        place.images = Buffer.from(place.images).toString("base64");
-        place.gallery = place.gallery.split(",").map((image) => image.trim());
-      });
-
-      // Process the results
-      const topPlaces = results.map(place => {
-        // Assuming 'images' and 'gallery' are fields in the 'places' table
-        place.images = Buffer.from(place.images, 'base64').toString();
-        place.gallery = place.gallery.split(",").map(image => image.trim());
-        return place;
-      });
-
-      // Send the processed top places as response
-      res.json(results);
-    });
-
+    );
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 router.get("/railway-packages", (req, res) => {
   pool.query("SELECT * from railway_packages", (error, results, feilds) => {
@@ -133,7 +136,6 @@ router.get("/railway-packages/:ticketId", (req, res) => {
   });
 });
 
-// Similarly, create an API endpoint for bus tickets
 router.get("/bus-packages/:ticketId", (req, res) => {
   const { ticketId } = req.params;
   console.log(ticketId);
@@ -289,8 +291,6 @@ router.post("/add-railway-package-details/:ticketId", (req, res) => {
   });
 });
 
-
-
 router.get("/bus-packages", (req, res) => {
   pool.query("SELECT * from bus_packages", (error, results, feilds) => {
     if (error) {
@@ -361,6 +361,122 @@ router.get("/tourist-details", async (req, res) => {
 
       res.status(200).json(user);
     });
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/tourist-unrated-packages", async (req, res) => {
+  const authToken = req.headers.authorization;
+
+  if (!authToken) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const token = authToken.split(" ")[1];
+    const decodedToken = await verifyAsync(token, secretKey);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const userId = decodedToken.userId;
+
+    pool.query(
+      "SELECT tourist_id FROM tourists WHERE user_id = ?",
+      [userId],
+      (error, results, fields) => {
+        if (error) {
+          console.error("Error fetching tourist ID:", error);
+          res.status(500).send("Error fetching data");
+          return;
+        }
+
+        if (results.length === 0) {
+          console.error("Tourist ID not found for user:", userId);
+          res.status(404).send("Tourist ID not found");
+          return;
+        }
+
+        const tourist_id = results[0].tourist_id;
+        console.log(tourist_id);
+
+        pool.query(
+          "SELECT * FROM packages WHERE tourist_id = ? AND rating IS NULL  ORDER BY tourist_id ASC LIMIT 10",
+          [tourist_id],
+          (error, results, fields) => {
+            if (error) {
+              console.error("Error executing query:", error);
+              res.status(500).send("Error fetching data");
+              // return;
+            }
+            console.log(results);
+            res.json(results);
+            
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/tourist-rated-packages", async (req, res) => {
+  const authToken = req.headers.authorization;
+
+  if (!authToken) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const token = authToken.split(" ")[1];
+    const decodedToken = await verifyAsync(token, secretKey);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const userId = decodedToken.userId;
+
+    pool.query(
+      "SELECT tourist_id FROM tourists WHERE user_id = ?",
+      [userId],
+      (error, results, fields) => {
+        if (error) {
+          console.error("Error fetching tourist ID:", error);
+          res.status(500).send("Error fetching data");
+          return;
+        }
+
+        if (results.length === 0) {
+          console.error("Tourist ID not found for user:", userId);
+          res.status(404).send("Tourist ID not found");
+          return;
+        }
+
+        const tourist_id = results[0].tourist_id;
+        console.log(tourist_id);
+
+        pool.query(
+          "SELECT * FROM packages WHERE tourist_id = ? AND rating IS NOT NULL",
+          [tourist_id],
+          (error, results, fields) => {
+            if (error) {
+              console.error("Error executing query:", error);
+              res.status(500).send("Error fetching data");
+              // return;
+            }
+            console.log(results);
+            res.json(results);
+            
+          }
+        );
+      }
+    );
   } catch (error) {
     console.error("Error verifying token:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -448,12 +564,12 @@ router.post("/create-package", async (req, res) => {
     adultPreference,
     numberOfIndividuals,
   } = req.body;
-
+  console.log(req.body);
   if (!authToken) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  console.log (dateSelect1);
+  console.log(dateSelect1);
 
   try {
     const token = authToken.split(" ")[1];
@@ -478,8 +594,6 @@ router.post("/create-package", async (req, res) => {
 
       const touristId = results[0].tourist_id;
 
-
-      
       const insertPackageQuery = `
         INSERT INTO packages (destination, start_date, end_date, preferences, no_of_person, tourist_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -499,12 +613,10 @@ router.post("/create-package", async (req, res) => {
           return res.status(500).json({ error: "Error inserting data" });
         }
         const packageId = insertResults.insertId; // Retrieve the generated package_id
-        res
-          .status(200)
-          .json({
-            message: "Package created successfully",
-            package_id: packageId,
-          });
+        res.status(200).json({
+          message: "Package created successfully",
+          package_id: packageId,
+        });
       });
     });
   } catch (error) {
@@ -539,10 +651,18 @@ router.get("/guide-service", (req, res) => {
     }
 
     results.forEach((guide) => {
-      guide.picture = guide.picture ? Buffer.from(guide.picture).toString("base64") : null;
-      guide.cnic_front_picture = guide.cnic_front_picture ? Buffer.from(guide.cnic_front_picture).toString("base64") : null;
-      guide.cnic_back_picture = guide.cnic_back_picture ? Buffer.from(guide.cnic_back_picture).toString("base64") : null;
-      guide.guide_license_picture = guide.guide_license_picture ? Buffer.from(guide.guide_license_picture).toString("base64") : null;
+      guide.picture = guide.picture
+        ? Buffer.from(guide.picture).toString("base64")
+        : null;
+      guide.cnic_front_picture = guide.cnic_front_picture
+        ? Buffer.from(guide.cnic_front_picture).toString("base64")
+        : null;
+      guide.cnic_back_picture = guide.cnic_back_picture
+        ? Buffer.from(guide.cnic_back_picture).toString("base64")
+        : null;
+      guide.guide_license_picture = guide.guide_license_picture
+        ? Buffer.from(guide.guide_license_picture).toString("base64")
+        : null;
     });
 
     console.log(results);
@@ -589,18 +709,22 @@ router.post("/update-package-details", (req, res) => {
     WHERE package_id = ?
   `;
 
-  pool.query(updateQuery, [guideId, carRentalId, package_id], (error, results) => {
-    if (error) {
-      console.error("Error updating package details:", error);
-      res.status(500).json({ error: "Error updating package details" });
-      return;
-    }
+  pool.query(
+    updateQuery,
+    [guideId, carRentalId, package_id],
+    (error, results) => {
+      if (error) {
+        console.error("Error updating package details:", error);
+        res.status(500).json({ error: "Error updating package details" });
+        return;
+      }
 
-    res.status(200).json({ message: "Package details updated successfully" });
-  });
+      res.status(200).json({ message: "Package details updated successfully" });
+    }
+  );
 });
 
-router.get('/packages/:package_id', (req, res) => {
+router.get("/packages/:package_id", (req, res) => {
   const { package_id } = req.params;
   const selectQuery = `
     SELECT start_date, end_date
@@ -625,20 +749,19 @@ router.get('/packages/:package_id', (req, res) => {
   });
 });
 
-
-router.post('/hotels', (req, res) => {
+router.post("/hotels", (req, res) => {
   let requestData;
 
   // Check if the request body is JSON
-  if (req.is('application/json')) {
+  if (req.is("application/json")) {
     requestData = req.body;
   } else {
     // Parse the request body as JSON if it's not already parsed
     try {
       requestData = JSON.parse(req.body);
     } catch (error) {
-      console.error('Error parsing request data:', error);
-      res.status(400).json({ error: 'Invalid request data format' });
+      console.error("Error parsing request data:", error);
+      res.status(400).json({ error: "Invalid request data format" });
       return;
     }
   }
@@ -654,161 +777,409 @@ router.post('/hotels', (req, res) => {
     FROM hotel_booking
     WHERE package_id = ? AND hotel_booking_id = ?
   `;
-  pool.query(roomQuery, [package_id, hotel_booking_id], (error1, roomResults) => {
-    if (error1) {
-      console.error('Error fetching room information:', error1);
-      res.status(500).json({ error: 'Error fetching room information' });
-      return;
-    }
+  pool.query(
+    roomQuery,
+    [package_id, hotel_booking_id],
+    (error1, roomResults) => {
+      if (error1) {
+        console.error("Error fetching room information:", error1);
+        res.status(500).json({ error: "Error fetching room information" });
+        return;
+      }
 
-    console.log(roomResults);
+      console.log(roomResults);
 
-    const hotelQuery = `
+      const hotelQuery = `
       SELECT name, area
       FROM hotel_details
       WHERE hotel_details_id = ?
     `;
-    pool.query(hotelQuery, [hotel_details_id], (error2, hotelResults) => {
-      if (error2) {
-        console.error('Error fetching hotel name:', error2);
-        res.status(500).json({ error: 'Error fetching hotel name' });
-        return;
-      }
+      pool.query(hotelQuery, [hotel_details_id], (error2, hotelResults) => {
+        if (error2) {
+          console.error("Error fetching hotel name:", error2);
+          res.status(500).json({ error: "Error fetching hotel name" });
+          return;
+        }
 
-      console.log(hotelResults);
+        console.log(hotelResults);
 
-      const response = {
-        room_type_name: roomResults[0]?.room_type_name || null,
-        rooms: roomResults[0]?.rooms || null,
-        price: roomResults[0]?.price || null,
-        name: hotelResults[0]?.name || null,
-        area: hotelResults[0]?.area || null,
-      };
+        const response = {
+          room_type_name: roomResults[0]?.room_type_name || null,
+          rooms: roomResults[0]?.rooms || null,
+          price: roomResults[0]?.price || null,
+          name: hotelResults[0]?.name || null,
+          area: hotelResults[0]?.area || null,
+        };
 
-      console.log(response);
+        console.log(response);
 
-      res.status(200).json(response);
-    });
-  });
+        res.status(200).json(response);
+      });
+    }
+  );
 });
 
 router.post("/hotel-booking", async (req, res) => {
   try {
-      // Extract token from request headers
-      const authToken = req.headers.authorization;
-      if (!authToken) {
-          return res.status(401).json({ error: 'Unauthorized' });
-      }
-      const token = authToken.split(' ')[1];
+    // Extract token from request headers
+    const authToken = req.headers.authorization;
+    if (!authToken) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const token = authToken.split(" ")[1];
 
-      // Decode token to get userId
-      const decodedToken = await verifyAsync(token, secretKey);
-      if (!decodedToken) {
-          return res.status(401).json({ error: 'Invalid token' });
-      }
-      const userId = decodedToken.userId;
+    // Decode token to get userId
+    const decodedToken = await verifyAsync(token, secretKey);
+    if (!decodedToken) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    const userId = decodedToken.userId;
 
-      // Fetch tourist_id from tourist table using user_id
-      pool.query('SELECT tourist_id FROM tourists WHERE user_id = ?', [userId], (touristIdError, touristIdResults) => {
-          if (touristIdError) {
-              console.error('Error fetching tourist ID:', touristIdError);
-              return res.status(500).json({ error: 'Error fetching data' });
+    // Fetch tourist_id from tourist table using user_id
+    pool.query(
+      "SELECT tourist_id FROM tourists WHERE user_id = ?",
+      [userId],
+      (touristIdError, touristIdResults) => {
+        if (touristIdError) {
+          console.error("Error fetching tourist ID:", touristIdError);
+          return res.status(500).json({ error: "Error fetching data" });
+        }
+
+        if (touristIdResults.length === 0) {
+          return res.status(404).json({ error: "Tourist not found" });
+        }
+
+        const touristId = touristIdResults[0].tourist_id;
+
+        // Extract data from request body
+        const {
+          hotel_details_id,
+          name,
+          price,
+          checkInDate,
+          checkOutDate,
+          rooms,
+          package_id,
+          day,
+        } = req.body;
+
+        // Parse date strings into JavaScript Date objects
+        const parsedCheckInDate = new Date(checkInDate);
+        const parsedCheckOutDate = new Date(checkOutDate);
+
+        // Format dates into MySQL-compatible format ('YYYY-MM-DD')
+        const formattedCheckInDate = `${parsedCheckInDate.getFullYear()}-${(
+          parsedCheckInDate.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}-${parsedCheckInDate
+          .getDate()
+          .toString()
+          .padStart(2, "0")}`;
+        const formattedCheckOutDate = `${parsedCheckOutDate.getFullYear()}-${(
+          parsedCheckOutDate.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}-${parsedCheckOutDate
+          .getDate()
+          .toString()
+          .padStart(2, "0")}`;
+
+        // Decrement the room count based on the room type
+        let roomFieldToUpdate;
+        switch (name) {
+          case "Single Bed Room":
+            roomFieldToUpdate = "rooms_single_bed";
+            break;
+          case "Double Bed Room":
+            roomFieldToUpdate = "rooms_double_bed";
+            break;
+          case "Standard Room":
+            roomFieldToUpdate = "rooms_standard";
+            break;
+          case "Executive Room":
+            roomFieldToUpdate = "rooms_executive";
+            break;
+          default:
+            return res.status(400).json({ error: "Invalid room type" });
+        }
+
+        // Update the room count in the hotel_details table
+        const updateQuery = `UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} - ? WHERE hotel_details_id = ?`;
+        const updateValues = [rooms, hotel_details_id];
+        pool.query(updateQuery, updateValues, (updateError, updateResults) => {
+          if (updateError) {
+            console.error("Error updating room count:", updateError);
+            return res.status(500).json({ error: "Error updating room count" });
           }
 
-          if (touristIdResults.length === 0) {
-              return res.status(404).json({ error: 'Tourist not found' });
-          }
-
-          const touristId = touristIdResults[0].tourist_id;
-
-          // Extract data from request body
-          const { hotel_details_id, name, price, checkInDate, checkOutDate, rooms, package_id, day } = req.body;
-
-          // Parse date strings into JavaScript Date objects
-          const parsedCheckInDate = new Date(checkInDate);
-          const parsedCheckOutDate = new Date(checkOutDate);
-          
-          // Format dates into MySQL-compatible format ('YYYY-MM-DD')
-          const formattedCheckInDate = `${parsedCheckInDate.getFullYear()}-${(parsedCheckInDate.getMonth() + 1).toString().padStart(2, '0')}-${parsedCheckInDate.getDate().toString().padStart(2, '0')}`;
-          const formattedCheckOutDate = `${parsedCheckOutDate.getFullYear()}-${(parsedCheckOutDate.getMonth() + 1).toString().padStart(2, '0')}-${parsedCheckOutDate.getDate().toString().padStart(2, '0')}`;
-          
-          // Decrement the room count based on the room type
-          let roomFieldToUpdate;
-          switch(name) {
-              case 'Single Bed Room':
-                  roomFieldToUpdate = 'rooms_single_bed';
-                  break;
-              case 'Double Bed Room':
-                  roomFieldToUpdate = 'rooms_double_bed';
-                  break;
-              case 'Standard Room':
-                  roomFieldToUpdate = 'rooms_standard';
-                  break;
-              case 'Executive Room':
-                  roomFieldToUpdate = 'rooms_executive';
-                  break;
-              default:
-                  return res.status(400).json({ error: 'Invalid room type' });
-          }
-
-          // Update the room count in the hotel_details table
-          const updateQuery = `UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} - ? WHERE hotel_details_id = ?`;
-          const updateValues = [rooms, hotel_details_id];
-          pool.query(updateQuery, updateValues, (updateError, updateResults) => {
-              if (updateError) {
-                  console.error('Error updating room count:', updateError);
-                  return res.status(500).json({ error: 'Error updating room count' });
-              }
-              
-              // Insert data into hotel_booking table
-              const insertQuery = `
+          // Insert data into hotel_booking table
+          const insertQuery = `
                   INSERT INTO hotel_booking (tourist_id, hotel_details_id, room_type_name, price, check_in, check_out, rooms, package_id)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               `;
-              const insertValues = [
-                  touristId,
-                  hotel_details_id,
-                  name,
-                  price,
-                  formattedCheckInDate,
-                  formattedCheckOutDate,
-                  rooms,
-                  package_id
-              ];
-              pool.query(insertQuery, insertValues, (insertError, insertResults) => {
-                  if (insertError) {
-                      console.error('Error inserting data:', insertError);
-                      // Roll back the room count update
-                      pool.query(`UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} + ? WHERE hotel_details_id = ?`, [rooms, hotel_details_id], (rollbackError, rollbackResults) => {
-                          if (rollbackError) {
-                              console.error('Error rolling back room count update:', rollbackError);
-                          }
-                          return res.status(500).json({ error: 'Error inserting data' });
-                      });
+          const insertValues = [
+            touristId,
+            hotel_details_id,
+            name,
+            price,
+            formattedCheckInDate,
+            formattedCheckOutDate,
+            rooms,
+            package_id,
+          ];
+          pool.query(
+            insertQuery,
+            insertValues,
+            (insertError, insertResults) => {
+              if (insertError) {
+                console.error("Error inserting data:", insertError);
+                // Roll back the room count update
+                pool.query(
+                  `UPDATE hotel_details SET ${roomFieldToUpdate} = ${roomFieldToUpdate} + ? WHERE hotel_details_id = ?`,
+                  [rooms, hotel_details_id],
+                  (rollbackError, rollbackResults) => {
+                    if (rollbackError) {
+                      console.error(
+                        "Error rolling back room count update:",
+                        rollbackError
+                      );
+                    }
+                    return res
+                      .status(500)
+                      .json({ error: "Error inserting data" });
                   }
+                );
+              }
 
-                  const hotelBookingId = insertResults.insertId;
-                  // Insert data into package_hotel_details table
-                  const packageHotelDetailsQuery = `
+              const hotelBookingId = insertResults.insertId;
+              // Insert data into package_hotel_details table
+              const packageHotelDetailsQuery = `
                       INSERT INTO package_hotel_details (package_id, hotel_booking_id, day)
                       VALUES (?, ?, ?)
                   `;
-                  const packageHotelDetailsValues = [package_id, hotelBookingId, day];
-                  pool.query(packageHotelDetailsQuery, packageHotelDetailsValues, (phdError, phdResults) => {
-                      if (phdError) {
-                          console.error('Error inserting data into package_hotel_details:', phdError);
-                      }
+              const packageHotelDetailsValues = [
+                package_id,
+                hotelBookingId,
+                day,
+              ];
+              pool.query(
+                packageHotelDetailsQuery,
+                packageHotelDetailsValues,
+                (phdError, phdResults) => {
+                  if (phdError) {
+                    console.error(
+                      "Error inserting data into package_hotel_details:",
+                      phdError
+                    );
+                  }
 
-                      const packageHotelDetailsId = phdResults.insertId;
-                      res.status(200).json({ message: "Booking added successfully", hotel_booking_id: hotelBookingId, package_hotel_details_id: packageHotelDetailsId });
+                  const packageHotelDetailsId = phdResults.insertId;
+                  res.status(200).json({
+                    message: "Booking added successfully",
+                    hotel_booking_id: hotelBookingId,
+                    package_hotel_details_id: packageHotelDetailsId,
                   });
-              });
-          });
-      });
+                }
+              );
+            }
+          );
+        });
+      }
+    );
   } catch (error) {
-      console.error("Error adding booking:", error);
-      // Return error response
-      res.status(500).json({ error: "Internal server error" });
+    console.error("Error adding booking:", error);
+    // Return error response
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/Itinerary", async (req, res) => {
+  const authToken = req.headers.authorization;
+
+  if (!authToken) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const token = authToken.split(" ")[1];
+    const decodedToken = await verifyAsync(token, secretKey);
+
+    if (!decodedToken) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const userId = decodedToken.userId;
+
+    pool.query(
+      "SELECT tourist_id FROM tourists WHERE user_id = ?",
+      [userId],
+      (touristError, touristResults) => {
+        if (touristError || touristResults.length === 0) {
+          return res.status(404).json({ error: "Tourist details not found" });
+        }
+
+        const touristId = touristResults[0].tourist_id;
+
+        pool.query(
+          "SELECT package_id FROM packages WHERE tourist_id = ?",
+          [touristId],
+          (packageError, packageResults) => {
+            if (packageError || packageResults.length === 0) {
+              return res
+                .status(404)
+                .json({ error: "Package details not found" });
+            }
+
+            const packageId = packageResults[0].package_id;
+
+            pool.query(
+              "SELECT * FROM packages WHERE package_id = ?",
+              [packageId],
+              (packageError, packageResults) => {
+                if (packageError || packageResults.length === 0) {
+                  return res
+                    .status(404)
+                    .json({ error: "Package details not found" });
+                }
+
+                pool.query(
+                  "SELECT * FROM package_details WHERE package_id = ?",
+                  [packageId],
+                  (packageDetailError, packageDetailResults) => {
+                    if (
+                      packageDetailError ||
+                      packageDetailResults.length === 0
+                    ) {
+                      return res
+                        .status(404)
+                        .json({ error: "Package details not found" });
+                    }
+
+                    pool.query(
+                      "SELECT name, contact_number, picture FROM guide_personal_details WHERE guide_id = ?",
+                      [packageDetailResults[0].guide_id],
+                      (guideError, guideResults) => {
+                        if (guideError || guideResults.length === 0) {
+                          return res
+                            .status(404)
+                            .json({ error: "Guide details not found" });
+                        }
+
+                        if (
+                          guideResults[0].picture !== null &&
+                          guideResults[0].picture !== undefined
+                        ) {
+                          guideResults[0].picture = Buffer.from(
+                            guideResults[0].picture,
+                            "binary"
+                          ).toString("base64");
+                        }
+
+                        pool.query(
+                          "SELECT car_name, driver_name, contact_number, Picture FROM car_rental_service WHERE car_rental_id = ?",
+                          [packageDetailResults[0].car_rental_id],
+                          (carRentalError, carRentalResults) => {
+                            if (
+                              carRentalError ||
+                              carRentalResults.length === 0
+                            ) {
+                              return res.status(404).json({
+                                error: "Car rental details not found",
+                              });
+                            }
+
+                            // Convert Picture field in carRentalResults to base64 string
+                            carRentalResults[0].Picture = Buffer.from(
+                              carRentalResults[0].Picture,
+                              "binary"
+                            ).toString("base64");
+
+                            pool.query(
+                              "SELECT hotel_booking_id, day FROM package_hotel_details WHERE package_id = ?",
+                              [packageId],
+                              (hotelBookingError, hotelBookingResults) => {
+                                if (
+                                  hotelBookingError ||
+                                  hotelBookingResults.length === 0
+                                ) {
+                                  return res.status(404).json({
+                                    error: "Hotel booking details not found",
+                                  });
+                                }
+
+                                const hotelBookingIds = hotelBookingResults.map(
+                                  (row) => row.hotel_booking_id
+                                );
+
+                                const hotelDetailsPromises =
+                                  hotelBookingIds.map((hotelBookingId) => {
+                                    return new Promise((resolve, reject) => {
+                                      pool.query(
+                                        "SELECT hb.*, hd.name, hd.area FROM hotel_booking hb JOIN hotel_details hd ON hb.hotel_details_id = hd.hotel_details_id WHERE hb.hotel_booking_id = ?",
+                                        [hotelBookingId],
+                                        (
+                                          hotelBookingDetailsError,
+                                          hotelBookingDetailsResults
+                                        ) => {
+                                          if (
+                                            hotelBookingDetailsError ||
+                                            hotelBookingDetailsResults.length ===
+                                              0
+                                          ) {
+                                            reject({
+                                              error:
+                                                "Hotel booking details not found",
+                                            });
+                                          } else {
+                                            resolve(
+                                              hotelBookingDetailsResults[0]
+                                            );
+                                          }
+                                        }
+                                      );
+                                    });
+                                  });
+
+                                Promise.all(hotelDetailsPromises)
+                                  .then((hotelDetailsArray) => {
+                                    const response = {
+                                      packageDetails: packageDetailResults[0],
+                                      guideDetails: guideResults[0],
+                                      carRentalDetails: carRentalResults[0],
+                                      hotelBookingDetails: hotelBookingResults,
+                                      hotelDetails: hotelDetailsArray,
+                                      package: packageResults[0],
+                                    };
+                                    console.log(response);
+                                    res.status(200).json(response);
+                                  })
+                                  .catch((error) => {
+                                    console.error(
+                                      "Error fetching hotel booking details:",
+                                      error
+                                    );
+                                    res
+                                      .status(500)
+                                      .json({ error: "Internal server error" });
+                                  });
+                              }
+                            );
+                          }
+                        );
+                      }
+                    );
+                  }
+                );
+              }
+            );
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

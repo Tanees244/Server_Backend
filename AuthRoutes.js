@@ -358,7 +358,7 @@ AuthRouter.post('/login', async (req, res) => {
                         { userId: user.user_id, email: user.email },
                         'safarnama',
                         {
-                          expiresIn: '1h',
+                          expiresIn: '6h',
                         }
                       );
 
